@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 import { QitsMainLayout } from '@qits/ui-components';
 import { Reader } from './reader';
-import { Scope } from './scope';
 import { Scopes } from './scopes';
 
 /**
@@ -11,16 +10,19 @@ import { Scopes } from './scopes';
  * skeleton on every hop and lose the sidebar's state with it.
  *
  * Its links leave this SPA on purpose: every destination is a different Angular application behind
- * its own base path, so they are plain `<a href>` full-document navigations. `QITS_NAV_LINKS` is the
- * default and this client passes no `links` of its own.
+ * its own base path, so they are plain `<a href>` full-document navigations. The list comes from
+ * `provideQitsNavigation()` — see app.config.ts — and this client passes no `links` of its own.
  *
- * Three layers under it, and one of them is a wildcard because a site name is not one segment.
- * `read/**` captures `@qits/ui-components/-/2026.807.0` whole and the component splits it on the
- * platform's `/-/` separator; no `:param` route can, since the name's depth varies.
+ * Two routes, and one of them is a wildcard because a site name is not one segment. `read/**`
+ * captures `@qits/ui-components/-/2026.807.0` whole and `doc-url.ts` splits it on the platform's
+ * `/-/` separator; no `:param` route can, since the name's depth varies.
  *
- * `:scope` is last so it cannot shadow `read`. It is also the ONE route the service hands over
- * rather than answering: `/platform-docs/@qits` is a scope page, and the service falls through for
- * a single segment beginning with `@` precisely so this route gets it.
+ * There is no scope route any more. Browsing scope by scope is the sidebar's job now, and a page
+ * built from the same `catalog()` was a second implementation of the same list. `/platform-docs/@qits`
+ * therefore falls to the wildcard and lands on the index — where the sidebar already shows it.
+ * NOTE: qits-platform-docs still falls through for a single `@`-prefixed path segment, which it
+ * added so that route could claim it. That fallthrough is now dead weight; it is a different
+ * repository, and harmless where it is.
  */
 export const routes: Routes = [
   {
@@ -29,7 +31,6 @@ export const routes: Routes = [
     children: [
       { path: '', component: Scopes },
       { path: 'read/**', component: Reader },
-      { path: ':scope', component: Scope },
       // Anything else is a mistyped URL; the index is the useful answer, not a 404 nobody wrote.
       { path: '**', redirectTo: '' },
     ],
