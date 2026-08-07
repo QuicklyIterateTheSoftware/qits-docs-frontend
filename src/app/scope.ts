@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { CatalogService } from './catalog';
 
 /**
@@ -27,9 +28,16 @@ import { CatalogService } from './catalog';
         <ul class="list">
           @for (entry of entries; track entry.name) {
             <li>
-              <!-- An ordinary href, not routerLink: the target is the SERVICE's redirect, not a
-                   route of this client, and routerLink would try to resolve it in the router. -->
-              <a class="row" [href]="entry.name">
+              <!-- To the READER, not to the bundle. Linking straight at the service's redirect served
+                   a full-viewport Storybook with no rail — so opening a doc took the version picker
+                   away, which is the one thing this page exists to lead to. -->
+              <!-- SPLIT, not passed whole: routerLink treats one array element as one segment and
+                   percent-encodes any slash in it, so a whole name comes out with its scope
+                   separator escaped. The reader parses either, but only one of them is a URL a
+                   person would copy. (No backticks in this comment: the template is a backtick
+                   literal, and one here terminates it — NG1002, from a decorator that then has the
+                   wrong number of arguments.) -->
+              <a class="row" [routerLink]="['/read', ...entry.name.split('/')]">
                 <span class="name">{{ entry.shortName }}</span>
                 <span class="meta">
                   {{ entry.latestVersion }} ·
@@ -106,8 +114,19 @@ import { CatalogService } from './catalog';
   `,
 })
 export class Scope {
-  /** From the route. `-` is how the unscoped group is spelled, since a segment cannot be empty. */
-  readonly scope = input.required<string>();
+  private readonly route = inject(ActivatedRoute);
+
+  /**
+   * From the route, read directly rather than bound as an input.
+   *
+   * `withComponentInputBinding()` is off — it wipes a route component's input defaults with
+   * `undefined`, which broke QitsMainLayout — so params are read here. `-` is how the unscoped
+   * group is spelled, since a URL segment cannot be empty.
+   */
+  protected readonly scope = toSignal(
+    this.route.paramMap.pipe(map((params) => params.get('scope') ?? '')),
+    { initialValue: this.route.snapshot.paramMap.get('scope') ?? '' },
+  );
 
   private readonly catalogService = inject(CatalogService);
   private readonly catalog = toSignal(this.catalogService.catalog());

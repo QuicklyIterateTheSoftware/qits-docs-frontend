@@ -35,7 +35,7 @@ import { CatalogService } from './catalog';
       @if (options().length) {
         <qits-picker
           [options]="options()"
-          [value]="version()"
+          [value]="selected()"
           (valueChange)="onVersion($event)"
           ariaLabel="Documentation version"
           placeholder="Pick a version"
@@ -53,11 +53,15 @@ import { CatalogService } from './catalog';
     <iframe class="bundle" [src]="bundleUrl()" [title]="site() + ' documentation'"></iframe>
   `,
   styles: `
+    /* Inside QitsMainLayout's content area, which already scrolls and pads — so this fills the
+       space it is given rather than claiming the viewport. The negative margins undo that padding:
+       a reader is one surface edge to edge, and a 16px gutter around an iframe reads as a mistake. */
     :host {
       display: grid;
-      grid-template-columns: 260px 1fr;
-      height: 100vh;
-      height: 100dvh;
+      grid-template-columns: 230px 1fr;
+      height: 100%;
+      margin: -16px;
+      min-height: 0;
       color: #111827;
     }
     .rail {
@@ -174,6 +178,17 @@ export class Reader {
   );
 
   /**
+   * Which version the picker shows as chosen.
+   *
+   * A URL with no version is still READING one — the newest — so leaving the picker empty would
+   * have it say nothing is selected on a page that is displaying something. It resolves to the same
+   * value the iframe loads, from the same list, so the two cannot disagree.
+   */
+  protected readonly selected = computed(
+    () => this.version() ?? this.loaded()?.versions[0]?.version,
+  );
+
+  /**
    * What the hint says. A URL with no version is reading the newest one, and the reader has not
    * been told which that is — the service resolved it inside the iframe. Naming it "the newest"
    * rather than rendering an empty box is the honest answer to a question this page cannot see.
@@ -195,30 +210,35 @@ export class Reader {
   });
 
   /**
-   * The bundle's own entry point, version-addressed and with the trailing slash.
+   * The bundle's own entry point — always version-addressed, never the bare site URL.
    *
-   * <p>The slash is load-bearing: the bundle refers to its assets relatively, so a src without it
-   * resolves every one of them a level too high. It is the same reason the service redirects.
+   * <p><b>That is not an optimisation, it is what stops the page loading itself.</b>
+   * `/platform-docs/<site>` is the human entry point and redirects HERE, to the reader; an iframe
+   * pointed at it would load this page inside this page, which is exactly what happened the first
+   * time. So the newest version is resolved from the list this component already has — the same list
+   * the picker is built from, so there is no second question and no second answer.
    *
-   * <p>`bypassSecurityTrustResourceUrl` is required for an iframe src and is safe here because the
-   * URL is built from a route parameter this client itself matched, against a path on its own
-   * origin — there is no attacker-supplied origin it could be pointed at.
+   * <p>Until that list arrives there is no address to load, and {@code about:blank} is the honest
+   * placeholder: a frame briefly empty, rather than one pointed somewhere it should not go.
+   *
+   * <p>The trailing slash is load-bearing. The bundle refers to its assets relatively, so a src
+   * without it resolves every one of them a level too high.
+   *
+   * <p>`bypassSecurityTrustResourceUrl` is required for an iframe src and is safe here: the URL is
+   * built from a route this client matched and a version the store named, against a path on its own
+   * origin.
    */
   protected readonly bundleUrl = computed(() => {
     const site = this.site();
-    // A BACKSTOP against the recursion above, not a second fix for it: if `site` ever names this
-    // client's own route again, the iframe would load the reader inside the reader. Refusing to
-    // build such a src turns a runaway page into a blank frame, which is debuggable.
-    if (!site || site.startsWith('read/')) {
+    const version = this.version() ?? this.loaded()?.versions[0]?.version;
+    // The `read/` check is a backstop for the other direction of the same mistake: if a site ever
+    // named this client's own route, the frame would nest again.
+    if (!site || !version || site.startsWith('read/')) {
       return this.sanitizer.bypassSecurityTrustResourceUrl('about:blank');
     }
-    const version = this.version();
-    const path = version
-      ? `${site}/-/${version}/`
-      : // No version in the route: let the service resolve the newest. It answers a redirect, and
-        // the iframe follows it, so this page needs no idea which version that is.
-        `${site}/`;
-    return this.sanitizer.bypassSecurityTrustResourceUrl(`/platform-docs/${path}`);
+    return this.sanitizer.bypassSecurityTrustResourceUrl(
+      `/platform-docs/${site}/-/${version}/`,
+    );
   });
 
   protected onVersion(version: string | undefined): void {
