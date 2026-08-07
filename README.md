@@ -34,12 +34,13 @@ implementations would eventually disagree.
 
 ## Its dependency on @qits/ui-components
 
-`QitsPicker`, `QitsNavSubmenu` and `provideQitsNavigation()`. **This client depends on a `main`
-prerelease** (`…-main.g<sha>`) rather than `latest`, because the sub-menu slot and the fetched
-navigation landed after the last release.
+`QitsPicker`, `QitsNavSubmenu` and `provideQitsNavigation()`, from an **ordinary `^` range** on a
+released version.
 
-The version is **exact, with no caret, and that is required rather than cautious.** `^X-main.gSHA`
-also admits the plain `X` that the release publishes, npm prefers the higher one, and the release
-predates everything this client imports — which fails the build with "has no exported member
-QitsPicker", from a range that looks like it asked for the newer thing. A ui-components release
-moves these to `latest`, and this becomes an ordinary range again — a one-line change.
+It was briefly an *exact* pin on a `main` prerelease (`…-main.g<sha>`), because the sub-menu slot
+and the fetched navigation landed after the last release. That is worth remembering rather than
+deleting, because the caret was the trap: `^X-main.gSHA` also admits the plain `X` the release
+publishes, npm prefers the higher one, and that release predates everything this client imports —
+so the build fails with "has no exported member QitsPicker", from a range that looks like it asked
+for the newer thing. Pin a prerelease exactly, or not at all. The full account is in
+`@qits/ui-components`' own README under *Install*.

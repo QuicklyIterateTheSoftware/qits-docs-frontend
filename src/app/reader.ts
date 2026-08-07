@@ -24,16 +24,16 @@ import { parseReadPath } from './doc-url';
   selector: 'qits-docs-reader',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <!-- Keyed on the address, so a version change yields a NEW iframe element rather than
-         re-pointing the old one. Re-pointing pushes an entry onto the joint session history, so the
-         browser Back button would walk back through the version list inside the frame before it
-         ever left the reader. Worth re-testing in a real browser: if the property binding turns out
-         to replace rather than append, this collapses back to a plain src-bound iframe. (No
-         backticks in this comment: the template is a backtick literal, and one here terminates it —
-         NG1010, from a decorator that then has the wrong number of arguments.) -->
-    @for (frame of frames(); track frame.key) {
-      <iframe class="bundle" [src]="bundleUrl()" [title]="site() + ' documentation'"></iframe>
-    }
+    <!-- A plain src-bound frame, and it was briefly wrapped in a keyed loop to force a NEW element
+         per version on the theory that re-pointing an existing frame pushes a joint session history
+         entry while creating a fresh one does not. MEASURED IN CHROME: both push. Opening a
+         document takes history.length from 2 to 4, switching version from 4 to 6 — one entry for
+         the router hop, one for the frame's load, either way. So the loop bought nothing and is
+         gone; what it claimed to prevent is a trait of hosting a whole application in a frame.
+         Reading a document costs two Back presses to leave, and that is not this binding's to fix.
+         (No backticks in this comment: the template is a backtick literal, and one here terminates
+         it — NG1010, from a decorator that then has the wrong number of arguments.) -->
+    <iframe class="bundle" [src]="bundleUrl()" [title]="site() + ' documentation'"></iframe>
   `,
   styles: `
     /* Inside QitsMainLayout's content area, which already scrolls and pads — so this fills the
@@ -126,7 +126,4 @@ export class Reader {
   protected readonly bundleUrl = computed(() =>
     this.sanitizer.bypassSecurityTrustResourceUrl(this.bundleHref()),
   );
-
-  /** One frame, keyed by where it points — see the template for what the key buys. */
-  protected readonly frames = computed(() => [{ key: this.bundleHref() }]);
 }
