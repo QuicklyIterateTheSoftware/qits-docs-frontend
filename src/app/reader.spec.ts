@@ -64,7 +64,7 @@ describe('Reader', () => {
   });
 
   /**
-   * `/platform-docs/<site>` is the service's redirect TO the reader. An iframe pointed there loads
+   * `/docs/<site>` is the service's redirect TO the reader. An iframe pointed there loads
    * this page inside this page — it actually happened — so the address must always carry a version.
    */
   it('resolves the newest version rather than the bare site URL', async () => {
@@ -73,9 +73,9 @@ describe('Reader', () => {
     await fixture.whenStable();
 
     const src = frame(fixture).getAttribute('src');
-    expect(src).toBe(`/platform-docs/${SITE}/-/2026.807.0/`);
-    expect(src).not.toBe(`/platform-docs/${SITE}`);
-    expect(src).not.toBe(`/platform-docs/${SITE}/`);
+    expect(src).toBe(`/docs/${SITE}/-/2026.807.0/`);
+    expect(src).not.toBe(`/docs/${SITE}`);
+    expect(src).not.toBe(`/docs/${SITE}/`);
   });
 
   it('takes the version out of the URL when there is one', async () => {
@@ -83,7 +83,7 @@ describe('Reader', () => {
     answerVersions(http, '2026.807.0', '2026.806.0');
     await fixture.whenStable();
 
-    expect(frame(fixture).getAttribute('src')).toBe(`/platform-docs/${SITE}/-/2026.806.0/`);
+    expect(frame(fixture).getAttribute('src')).toBe(`/docs/${SITE}/-/2026.806.0/`);
   });
 
   /**

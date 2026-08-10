@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable, shareReplay } from 'rxjs';
 
-/** One documented thing, as `/platform-docs/api/sites` reports it. */
+/** One documented thing, as `/docs/api/sites` reports it. */
 export interface DocEntry {
   /** The full site name, e.g. `@qits/ui-components` — what a URL path carries. */
   readonly name: string;
@@ -40,7 +40,7 @@ export interface DocVersion {
  * The one thing this client fetches.
  *
  * <p>Both URLs are <b>relative</b>, which is what makes the segment a deployment decision rather
- * than a value compiled in: the document's `<base href="/platform-docs/">` resolves them, so moving
+ * than a value compiled in: the document's `<base href="/docs/">` resolves them, so moving
  * the service is a `baseHref` change here and a route change in the gateway, and nothing else.
  *
  * <p><b>Both answers are cached for the life of the page, and that is a correctness measure before
@@ -77,7 +77,7 @@ export class CatalogService {
    *
    * The site goes in a QUERY parameter, not the path, and that is forced rather than chosen: a name
    * carries slashes and usually a leading `@`, so a path spelling would need the same `/-/` grammar
-   * the reading routes use — and `/platform-docs/<site>` is already taken by the redirect a browser
+   * the reading routes use — and `/docs/<site>` is already taken by the redirect a browser
    * wants. `HttpParams` encodes it, which is what keeps `@qits/ui-components` intact.
    *
    * Ordering is the store's contract, not this client's: re-sorting here would be a second opinion

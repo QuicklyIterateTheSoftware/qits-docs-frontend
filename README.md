@@ -1,13 +1,13 @@
-# qits-platform-spa-docs
+# qits-spa-docs
 
-The client for **qits-platform-docs** — the platform's reading room. Two routes over one store:
+The client for **qits-docs** — the platform's reading room. Two routes over one store:
 
-    /platform-docs/                          the door sign
-    /platform-docs/read/<site>/-/<version>   one bundle, in a frame
+    /docs/                          the door sign
+    /docs/read/<site>/-/<version>   one bundle, in a frame
 
-Angular 21.2, standalone, no SSR, `baseHref: /platform-docs/`. Served by Quinoa from
-qits-platform-docs at `src/main/webui`; this repository is a submodule there and in the
-superproject at `frontends/qits-platform-spa-docs`.
+Angular 21.2, standalone, no SSR, `baseHref: /docs/`. Served by Quinoa from
+qits-docs at `src/main/webui`; this repository is a submodule there and in the
+superproject at `frontends/qits-spa-docs`.
 
     npm ci && npm run build      # needs the platform's npm registry — see .npmrc
 

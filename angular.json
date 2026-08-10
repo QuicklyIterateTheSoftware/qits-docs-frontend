@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "qits-platform-spa-docs": {
+    "qits-spa-docs": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -27,7 +27,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "baseHref": "/platform-docs/"
+            "baseHref": "/docs/"
           },
           "configurations": {
             "production": {
@@ -57,10 +57,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "qits-platform-spa-docs:build:production"
+              "buildTarget": "qits-spa-docs:build:production"
             },
             "development": {
-              "buildTarget": "qits-platform-spa-docs:build:development"
+              "buildTarget": "qits-spa-docs:build:development"
             }
           },
           "defaultConfiguration": "development"

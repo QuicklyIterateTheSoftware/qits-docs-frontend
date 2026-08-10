@@ -90,7 +90,7 @@ export class Reader {
    * The bundle's own entry point as a STRING — always version-addressed, never the bare site URL.
    *
    * <p><b>That is not an optimisation, it is what stops the page loading itself.</b>
-   * `/platform-docs/<site>` is the human entry point and redirects HERE, to the reader; an iframe
+   * `/docs/<site>` is the human entry point and redirects HERE, to the reader; an iframe
    * pointed at it would load this page inside this page, which is exactly what happened the first
    * time. So the newest version is resolved from the list this component already has.
    *
@@ -108,7 +108,7 @@ export class Reader {
     if (!site || !version || site.startsWith('read/')) {
       return 'about:blank';
     }
-    return `/platform-docs/${site}/-/${version}/`;
+    return `/docs/${site}/-/${version}/`;
   });
 
   /**

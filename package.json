@@ -1,5 +1,5 @@
 {
-  "name": "qits-platform-spa-docs",
+  "name": "qits-spa-docs",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",

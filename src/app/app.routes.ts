@@ -18,9 +18,9 @@ import { Scopes } from './scopes';
  * `/-/` separator; no `:param` route can, since the name's depth varies.
  *
  * There is no scope route any more. Browsing scope by scope is the sidebar's job now, and a page
- * built from the same `catalog()` was a second implementation of the same list. `/platform-docs/@qits`
+ * built from the same `catalog()` was a second implementation of the same list. `/docs/@qits`
  * therefore falls to the wildcard and lands on the index — where the sidebar already shows it.
- * NOTE: qits-platform-docs still falls through for a single `@`-prefixed path segment, which it
+ * NOTE: qits-docs still falls through for a single `@`-prefixed path segment, which it
  * added so that route could claim it. That fallthrough is now dead weight; it is a different
  * repository, and harmless where it is.
  */
