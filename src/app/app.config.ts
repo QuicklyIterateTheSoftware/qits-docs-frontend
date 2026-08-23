@@ -1,7 +1,11 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+  provideZonelessChangeDetection,
+} from '@angular/core';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideQitsNavigation } from '@qits/ui-components';
+import { provideQitsNavigation, provideQitsProjects } from '@qits/ui-components';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -26,5 +30,9 @@ export const appConfig: ApplicationConfig = {
     // ui-components, which would be a second source of truth for the platform's own topology. Needs
     // the HttpClient above, which is why it is written after it.
     provideQitsNavigation(),
+    // The project picker in the chrome's top-left slot, where the wordmark was, from one
+    // GET /projects/api/projects. Every resource on the platform belongs to a project, so which one
+    // is open belongs above the links rather than inside one of them. Needs the HttpClient too.
+    provideQitsProjects(),
   ],
 };
