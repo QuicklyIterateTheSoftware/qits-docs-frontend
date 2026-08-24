@@ -7,9 +7,10 @@ import { Reader } from './reader';
 import { Scopes } from './scopes';
 
 /**
- * Every page of this application is addressable twice — its own path, and the same path under a
- * repository — and the two must land on the SAME component. A second component for the scoped form
- * is the failure this guards against: it would compile, render, and drift.
+ * Every page of this application is addressable three times — its own path, the same path under a
+ * project, and the same path under a repository — and all three must land on the SAME component. A
+ * second component for a scoped form is the failure this guards against: it would compile, render,
+ * and drift.
  *
  * <p>Components are never created here. Without a `RouterOutlet` the router builds the state and
  * stops, so this reads what each URL resolves to without booting the chrome, the navigation fetch
@@ -42,6 +43,15 @@ describe('app routes', () => {
     ).toBe(Reader);
   });
 
+  it('serves the landing page under a project', async () => {
+    // Where the chrome's project picker sends this app when a reader picks `qits`.
+    expect(await resolve('/qits')).toBe(Scopes);
+  });
+
+  it('serves the reader under a project', async () => {
+    expect(await resolve('/qits/read/@qits/ui-components/-/1.0.0')).toBe(Reader);
+  });
+
   /**
    * The literal wins, which is why OWN routes come first. `read` is a plausible project slug and
    * `@qits` is not a category, so nothing scoped could claim this — but the ordering is what makes
@@ -49,6 +59,8 @@ describe('app routes', () => {
    */
   it('reads a literal first segment as this app own page, not as a project', async () => {
     expect(await resolve('/read/qits-cli')).toBe(Reader);
+    // Even against the project form, which would otherwise read `read` as a slug.
+    expect(await resolve('/read/@qits/ui-components')).toBe(Reader);
   });
 
   /** A second segment that is not a category is not a scope, so the wildcard takes it. */

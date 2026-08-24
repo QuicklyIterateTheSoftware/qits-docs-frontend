@@ -37,15 +37,20 @@ export const categoryIsKnown: CanMatchFn = (_route, segments: UrlSegment[]) =>
   QITS_CATEGORIES.includes(segments[1]?.path as QitsCategory);
 
 /**
- * The platform's URL grammar: every page of this application is addressable twice — unscoped, and
- * under the repository whose documentation it shows.
+ * The platform's URL grammar: every page of this application is addressable three times —
+ * unscoped, under a project, and under the repository whose documentation it shows.
  *
- * OWN routes come FIRST so a literal first segment always wins: `/read/@qits/ui-components` is this
- * app's reader, never a project called `read`. The scoped form follows, guarded on the category, and
- * the wildcard closes the list.
+ * The project form is what the chrome's project picker navigates to: `UrlScope.select(slug)` goes
+ * to `/<slug>/`, and without this route that pick would fall through to the wildcard.
+ *
+ * Order is the whole grammar, and it works because the three vocabularies cannot collide: a
+ * category is never a slug, and a slug is never one of this app's own first segments. OWN routes
+ * come FIRST so a literal first segment always wins — `/read/@qits/ui-components` is this app's
+ * reader, never a project called `read`. The repository form follows, guarded on the category, then
+ * the project form takes what is left, and the wildcard closes the list.
  *
  * The pages read `inject(QITS_SCOPE).scope()` rather than these params, so the same components serve
- * both spellings and neither has a component of its own.
+ * every spelling and none has a component of its own.
  */
 export const routes: Routes = [
   {
@@ -54,6 +59,7 @@ export const routes: Routes = [
     children: [
       ...OWN,
       { path: ':project/:category/:repository', canMatch: [categoryIsKnown], children: OWN },
+      { path: ':project', children: OWN },
       // Anything else is a mistyped URL; the index is the useful answer, not a 404 nobody wrote.
       { path: '**', redirectTo: '' },
     ],
