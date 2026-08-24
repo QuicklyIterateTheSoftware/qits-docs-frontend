@@ -1,13 +1,16 @@
 # qits-spa-docs
 
-The client for **qits-docs** — the platform's reading room. Two routes over one store:
+The client for **qits-docs** — the platform's reading room. Two pages over one store, each
+addressable twice:
 
-    /docs/                          the door sign
-    /docs/read/<site>/-/<version>   one bundle, in a frame
+    /                                          the door sign
+    /read/<site>/-/<version>                   one bundle, in a frame
+    /<slug>/<category>/<repo>/                 one repository's documentation
+    /<slug>/<category>/<repo>/read/<site>/…    the same bundle, in that scope
 
-Angular 21.2, standalone, no SSR, `baseHref: /docs/`. Served by Quinoa from
-qits-docs at `src/main/webui`; this repository is a submodule there and in the
-superproject at `frontends/qits-spa-docs`.
+Angular 21.2, standalone, no SSR, `baseHref: /`. Served by Quinoa from qits-docs at
+`src/main/webui`, at the **root of the docs host** (`docs.<env>.<domain>`); this repository is a
+submodule there and in the superproject at `frontends/qits-spa-docs`.
 
     npm ci && npm run build      # needs the platform's npm registry — see .npmrc
 
@@ -31,6 +34,13 @@ navigation and the tree would lose its scroll position each time someone opened 
 service and the store use, so one URL shape means one thing everywhere. That file is the only place
 the grammar is written: the tree builds these URLs and the reader takes them apart, and two
 implementations would eventually disagree.
+
+**The scope is the address, and the pages read it rather than their route params.** `app.routes.ts`
+mounts the same two children twice — once at the root, once under
+`:project/:category/:repository` guarded on the category — so there is exactly one component per
+page and `app.routes.spec.ts` pins that. `readCommands` takes the scope prefix as an argument, which
+is what keeps a link written inside a repository from dropping out of it, and `catalog.ts` asks for
+`/docs/api/...` absolutely: relative would resolve against whatever scoped page the reader is on.
 
 ## Its dependency on @qits/ui-components
 

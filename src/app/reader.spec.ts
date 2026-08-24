@@ -42,7 +42,7 @@ describe('Reader', () => {
 
   function answerVersions(http: HttpTestingController, ...versions: string[]): void {
     http
-      .expectOne((request) => request.url === 'api/versions')
+      .expectOne((request) => request.url === '/docs/api/versions')
       .flush({
         name: SITE,
         versions: versions.map((version) => ({

@@ -27,7 +27,7 @@
             "styles": [
               "src/styles.css"
             ],
-            "baseHref": "/docs/"
+            "baseHref": "/"
           },
           "configurations": {
             "production": {
@@ -63,7 +63,10 @@
               "buildTarget": "qits-spa-docs:build:development"
             }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "development",
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          }
         },
         "test": {
           "builder": "@angular/build:unit-test"

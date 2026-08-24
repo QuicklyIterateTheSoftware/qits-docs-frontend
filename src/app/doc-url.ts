@@ -42,9 +42,19 @@ export function parseReadPath(segments: readonly string[]): ReadPath {
  * one segment and percent-encodes any slash inside it, so a whole name comes out with its scope
  * separator escaped: `%2F` in the address bar of a URL a person might copy. The reader parses
  * either, but only one of them is worth showing.
+ *
+ * <p>`prefix` is where the reader lives on this host — `['/']` unscoped, and the platform's
+ * `scopeCommands(scope())` under a repository address. It is passed in rather than injected here so
+ * this file stays pure: the same grammar answers for a spec, a link and a programmatic navigation.
+ * `read` is an element of its own for the same reason the name is split — `'/read'` inside a scoped
+ * array would be one segment carrying a slash.
  */
-export function readCommands(site: string, version?: string): string[] {
-  const commands = ['/read', ...site.split('/')];
+export function readCommands(
+  site: string,
+  version?: string,
+  prefix: readonly string[] = ['/'],
+): string[] {
+  const commands = [...prefix, 'read', ...site.split('/')];
   return version ? [...commands, '-', version] : commands;
 }
 

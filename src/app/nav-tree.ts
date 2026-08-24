@@ -2,7 +2,13 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map, of, switchMap } from 'rxjs';
-import { QitsPicker, type QitsPickerOption } from '@qits/ui-components';
+import {
+  QitsPicker,
+  QITS_SCOPE,
+  scopeCommands,
+  scopePath,
+  type QitsPickerOption,
+} from '@qits/ui-components';
 import { CatalogService } from './catalog';
 import { parseReadPath, readCommands } from './doc-url';
 
@@ -124,9 +130,19 @@ import { parseReadPath, readCommands } from './doc-url';
 export class DocsNavTree {
   private readonly catalogService = inject(CatalogService);
   private readonly router = inject(Router);
+  private readonly scopeSource = inject(QITS_SCOPE, { optional: true });
 
-  /** Bound in the template; `readCommands` is a function, and a template can only reach a member. */
-  protected readonly commands = readCommands;
+  /**
+   * Where the reader lives on this host: `/read/…` unscoped, `/<slug>/<category>/<repo>/read/…`
+   * under a repository address. Every link this tree writes carries it, so opening a document from
+   * a scoped page stays in that scope rather than dropping out of it.
+   */
+  private readonly prefix = computed(() => scopeCommands(this.scopeSource?.scope()));
+
+  /** Bound in the template; a template can only reach a member, not an imported function. */
+  protected commands(site: string): string[] {
+    return readCommands(site, undefined, this.prefix());
+  }
 
   protected readonly catalog = toSignal(this.catalogService.catalog());
 
@@ -150,8 +166,14 @@ export class DocsNavTree {
   private readonly read = computed(() => {
     // Query and fragment are not part of the grammar. Segments are decoded because the router
     // encoded them, and `parseReadPath` is written against the decoded names the reader also sees.
+    //
+    // The scope path is trimmed off FIRST. Under `/qits/services/qits-docs/read/@qits/…` the three
+    // scope segments are not part of the site name, and left in they make the site
+    // `qits/services/qits-docs/read/@qits/…` — which matches no entry, so the picker never appears.
     const path = this.url().split('#')[0].split('?')[0];
-    return parseReadPath(path.split('/').filter(Boolean).map(decodeURIComponent));
+    const base = scopePath(this.scopeSource?.scope());
+    const inside = path.startsWith(base) ? path.slice(base.length) : path;
+    return parseReadPath(inside.split('/').filter(Boolean).map(decodeURIComponent));
   });
 
   /** Empty on the landing page, which is how the template knows to nest the picker nowhere. */
@@ -195,6 +217,6 @@ export class DocsNavTree {
     // binding (that is why it demands a SafeResourceUrl), and assigning an iframe's src navigates
     // the nested browsing context on its own. A reload would now also destroy this tree, which is
     // the one thing moving the picker into the sidebar was for.
-    void this.router.navigate(readCommands(site, version));
+    void this.router.navigate(readCommands(site, version, this.prefix()));
   }
 }

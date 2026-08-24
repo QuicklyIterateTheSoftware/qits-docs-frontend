@@ -5,7 +5,7 @@ import {
 } from '@angular/core';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideQitsNavigation, provideQitsProjects } from '@qits/ui-components';
+import { provideQitsNavigation, provideQitsProjects, provideQitsScope } from '@qits/ui-components';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -33,6 +33,11 @@ export const appConfig: ApplicationConfig = {
     // The project picker in the chrome's top-left slot, where the wordmark was, from one
     // GET /projects/api/projects. Every resource on the platform belongs to a project, so which one
     // is open belongs above the links rather than inside one of them. Needs the HttpClient too.
+    // It also installs the repositories of whatever project is in scope, which the sidebar draws.
     provideQitsProjects(),
+    // How deep this application's own addresses go. Documentation belongs to a repository — a
+    // published site is one repository's — so this app routes /<slug>/<category>/<repo>/… as well
+    // as its own unscoped paths, and every page reads the scope rather than the route params.
+    provideQitsScope('repository'),
   ],
 };
