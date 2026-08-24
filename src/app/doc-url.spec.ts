@@ -29,17 +29,30 @@ describe('parseReadPath', () => {
 describe('readCommands', () => {
   /** One element is one segment: passed whole, the scope separator comes out as %2F. */
   it('splits the name so routerLink does not escape its slash', () => {
-    expect(readCommands('@qits/ui-components')).toEqual(['/read', '@qits', 'ui-components']);
+    expect(readCommands('@qits/ui-components')).toEqual(['/', 'read', '@qits', 'ui-components']);
   });
 
   it('appends the version behind the separator', () => {
     expect(readCommands('@qits/ui-components', '2026.807.0')).toEqual([
-      '/read',
+      '/',
+      'read',
       '@qits',
       'ui-components',
       '-',
       '2026.807.0',
     ]);
+  });
+
+  /** The scoped spelling: the prefix is the platform's, `read` is still a segment of its own. */
+  it('writes the link inside the scope it was given', () => {
+    expect(
+      readCommands('@qits/ui-components', undefined, [
+        '/',
+        'qits',
+        'libs',
+        'qits-spa-ui-components',
+      ]),
+    ).toEqual(['/', 'qits', 'libs', 'qits-spa-ui-components', 'read', '@qits', 'ui-components']);
   });
 
   it('round-trips whatever it produced', () => {

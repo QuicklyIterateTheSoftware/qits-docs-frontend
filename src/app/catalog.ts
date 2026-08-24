@@ -39,9 +39,11 @@ export interface DocVersion {
 /**
  * The one thing this client fetches.
  *
- * <p>Both URLs are <b>relative</b>, which is what makes the segment a deployment decision rather
- * than a value compiled in: the document's `<base href="/docs/">` resolves them, so moving
- * the service is a `baseHref` change here and a route change in the gateway, and nothing else.
+ * <p>Both URLs are <b>absolute</b>, and that is what the segment is for. This client is served at
+ * the root of the docs host, so a relative `api/sites` would resolve against whatever page the
+ * reader is on — `/qits/services/qits-docs/api/sites` under a scoped address. The API keeps its own
+ * segment (`/docs/api`) and the platform path-routes it on every host, so the absolute spelling is
+ * the one that reaches qits-docs from anywhere, same-origin, with the session cookie and no CORS.
  *
  * <p><b>Both answers are cached for the life of the page, and that is a correctness measure before
  * it is a saving.</b> An `HttpClient` observable is cold — one subscriber, one GET — and each of
@@ -66,7 +68,7 @@ export class CatalogService {
    */
   catalog(): Observable<Catalog> {
     return (this.catalogOnce ??= this.http
-      .get<Catalog>('api/sites')
+      .get<Catalog>('/docs/api/sites')
       // refCount: false — the reader unsubscribing when a page is torn down must not throw the
       // answer away and make the next subscriber re-fetch it.
       .pipe(shareReplay({ bufferSize: 1, refCount: false })));
@@ -87,7 +89,7 @@ export class CatalogService {
     let cached = this.versionsBySite.get(site);
     if (!cached) {
       cached = this.http
-        .get<SiteVersions>('api/versions', { params: new HttpParams().set('site', site) })
+        .get<SiteVersions>('/docs/api/versions', { params: new HttpParams().set('site', site) })
         .pipe(shareReplay({ bufferSize: 1, refCount: false }));
       this.versionsBySite.set(site, cached);
     }
