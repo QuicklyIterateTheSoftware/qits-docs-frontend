@@ -1,4 +1,5 @@
 import { categoriesOf, pageBaseUrl, pagesInCategory, storyPages } from './bundle-files';
+import { storyTitle } from './markdown-bundle';
 import { openapiPathOf } from './swagger-bundle';
 
 describe('bundle readers, the pure pieces', () => {
@@ -43,6 +44,15 @@ describe('bundle readers, the pure pieces', () => {
       pageBaseUrl('@userflows/qits-githost', 'a'.repeat(40), 'authentication/some-story/user-story.md'),
     ).toBe(`/docs/@userflows/qits-githost/-/${'a'.repeat(40)}/authentication/some-story/`);
     expect(pageBaseUrl('site', '1.0.0', 'README.md')).toBe('/docs/site/-/1.0.0/');
+  });
+
+  it('labels a legend entry with the story`s own h1, falling back to the slug', () => {
+    expect(storyTitle("# A stranger's token never opens the git host\n\nbody", 'slug')).toBe(
+      "A stranger's token never opens the git host",
+    );
+    // No h1 (or only deeper headings): the slug stands in.
+    expect(storyTitle('## steps\n\nbody', 'a-story-slug')).toBe('a-story-slug');
+    expect(storyTitle('', 'a-story-slug')).toBe('a-story-slug');
   });
 
   it('finds the OpenAPI document by name, falling back to the first spec-shaped file', () => {
