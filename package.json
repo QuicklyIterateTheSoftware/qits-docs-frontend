@@ -17,7 +17,7 @@
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
-    "@qits/ui-components": "2026.824.155425",
+    "@qits/ui-components": "2026.827.160521",
     "dompurify": "^3.4.14",
     "marked": "^18.0.11",
     "marked-base-url": "^1.1.10",
