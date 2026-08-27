@@ -1,4 +1,4 @@
-import { branchOf, distinctBranches } from './doc-kind';
+import { branchOf, distinctBranches, siteBelongsToRepository } from './doc-kind';
 import { navSections } from './nav-tree';
 import { defaultVersion, versionLabel, versionsOnBranch } from './reader';
 import type { Catalog, DocVersion } from './catalog';
@@ -39,6 +39,33 @@ describe('sub-navigation sections and version selection', () => {
     expect(sections[0].docs.map((entry) => entry.name)).toEqual(['@qits/ui-components']);
     expect(sections[1].docs).toEqual([]);
     expect(sections[2].docs.map((entry) => entry.shortName)).toEqual(['qits-githost']);
+  });
+
+  it('narrows the fold to one repository`s own sites under a scope', () => {
+    const catalog: Catalog = {
+      scopes: [
+        {
+          scope: '@userflows',
+          docs: [
+            { name: '@userflows/qits-githost', shortName: 'qits-githost', versionCount: 1, latestVersion: 'a' },
+            { name: '@userflows/qits-ci', shortName: 'qits-ci', versionCount: 1, latestVersion: 'b' },
+          ],
+        },
+      ],
+    };
+    const sections = navSections(catalog, 'qits-githost');
+    // The foreign site is gone; unscoped keeps both.
+    expect(sections[2].docs.map((entry) => entry.shortName)).toEqual(['qits-githost']);
+    expect(navSections(catalog)[2].docs.length).toBe(2);
+  });
+
+  it('matches a site to its repository across the naming spellings in the wild', () => {
+    expect(siteBelongsToRepository('qits-githost', 'qits-githost')).toBe(true);
+    // The repository carries a prefix the site name drops.
+    expect(siteBelongsToRepository('ui-components', 'qits-spa-ui-components')).toBe(true);
+    // The site extends its repository's name.
+    expect(siteBelongsToRepository('qits-cli-bootstrap', 'qits-cli')).toBe(true);
+    expect(siteBelongsToRepository('qits-ci', 'qits-githost')).toBe(false);
   });
 
   it('derives distinct branches newest-first, skipping unbranched versions', () => {

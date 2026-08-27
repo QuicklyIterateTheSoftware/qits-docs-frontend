@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { QITS_SCOPE, scopeCommands } from '@qits/ui-components';
 import { CatalogService } from './catalog';
-import { DOC_SECTIONS, kindOf } from './doc-kind';
+import { DOC_SECTIONS, kindOf, siteBelongsToRepository } from './doc-kind';
 import { readCommands } from './doc-url';
 
 /**
@@ -45,16 +45,9 @@ import { readCommands } from './doc-url';
             }
           </ul>
         } @else {
-          <p class="empty">No docs published for {{ repo }}.</p>
-          <p class="lede">Everything published in this environment:</p>
-          <ul class="sites">
-            @for (entry of catalog(); track entry.name) {
-              <li>
-                <a [routerLink]="commands(entry.name)">{{ entry.name }}</a>
-                <span class="meta">{{ entry.latestVersion }}</span>
-              </li>
-            }
-          </ul>
+          <!-- Scoped means scoped: a missed match reads as "nothing published", never as a
+               listing of other repositories' docs wearing this repository's address. -->
+          <p class="empty">No docs published for {{ repo }} yet.</p>
         }
       } @else {
         <!-- The unscoped landing: the three sections as cards, each an address of its own. The
@@ -177,24 +170,12 @@ export class Scopes {
 
   protected readonly repository = computed(() => this.scopeSource?.scope().repository);
 
-  /**
-   * The sites this repository published.
-   *
-   * <p>Matched on the short name — the part after the npm scope — against the repository name, in
-   * both directions of containment. A repository called `qits-spa-ui-components` publishes
-   * `@qits/ui-components`, and one called `qits-cli` publishes `qits-cli-bootstrap`; neither is an
-   * equality, and no field on either side records the link. So this is a heuristic, said out loud:
-   * when it finds nothing the page shows the whole catalog rather than an empty screen, because a
-   * missing match is far more likely than a repository that published nothing.
-   */
+  /** The sites this repository published — `siteBelongsToRepository` owns the heuristic. */
   protected readonly matching = computed(() => {
     const repo = this.repository();
     const entries = this.catalog() ?? [];
     if (!repo) return [];
-    return entries.filter((entry) => {
-      const short = entry.shortName;
-      return short === repo || repo.endsWith(short) || repo.startsWith(short);
-    });
+    return entries.filter((entry) => siteBelongsToRepository(entry.shortName, repo));
   });
 
   protected commands(site: string): string[] {

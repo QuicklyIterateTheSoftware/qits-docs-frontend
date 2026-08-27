@@ -4,7 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { QITS_SCOPE, scopeCommands } from '@qits/ui-components';
 import { CatalogService, type DocEntry } from './catalog';
-import { DOC_SECTIONS, kindOf, type DocKind } from './doc-kind';
+import { DOC_SECTIONS, kindOf, siteBelongsToRepository, type DocKind } from './doc-kind';
 import { readCommands } from './doc-url';
 
 /**
@@ -110,11 +110,17 @@ export class Section {
 
   protected readonly catalog = toSignal(this.catalogService.catalog());
 
-  protected readonly entries = computed<DocEntry[]>(() =>
-    (this.catalog()?.scopes ?? [])
+  /** Under a repository scope, only that repository's own sites — never someone else's docs. */
+  protected readonly entries = computed<DocEntry[]>(() => {
+    const repository = this.scopeSource?.scope().repository;
+    return (this.catalog()?.scopes ?? [])
       .flatMap((group) => group.docs)
-      .filter((entry) => kindOf(entry.name) === this.kind()),
-  );
+      .filter(
+        (entry) =>
+          kindOf(entry.name) === this.kind() &&
+          (!repository || siteBelongsToRepository(entry.shortName, repository)),
+      );
+  });
 
   protected emptyHint(): string {
     switch (this.kind()) {
