@@ -13,31 +13,12 @@ import {
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import { catchError, map, of, switchMap } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 import { Marked } from 'marked';
 import { baseUrl } from 'marked-base-url';
 import DOMPurify from 'dompurify';
+import { categoriesOf, pageBaseUrl, pagesInCategory, storyPages } from './bundle-files';
 import { CatalogService } from './catalog';
-
-/** The bundle's pages: every markdown file, labelled by its story directory (or its own name). */
-export function storyPages(
-  files: readonly string[],
-): { readonly path: string; readonly label: string }[] {
-  return files
-    .filter((file) => file.endsWith('.md'))
-    .map((path) => {
-      const directory = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
-      return { path, label: directory || path.replace(/\.md$/, '') };
-    });
-}
-
-/**
- * Where a page's RELATIVE references resolve — the served bundle directory the page sits in, with
- * the trailing slash that keeps `screenshot.png` beside the page rather than a level up.
- */
-export function pageBaseUrl(site: string, version: string, page: string): string {
-  const directory = page.includes('/') ? page.slice(0, page.lastIndexOf('/') + 1) : '';
-  return `/docs/${site}/-/${version}/${directory}`;
-}
 
 /**
  * A markdown bundle, read page by page — the userflows kind: no `index.html` to frame, so the
@@ -51,16 +32,18 @@ export function pageBaseUrl(site: string, version: string, page: string): string
   selector: 'docs-markdown-bundle',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    @if (pages().length > 1) {
+    @if (visiblePages().length > 1) {
       <!-- The platform's on-page selector shape (.rev, the code pages'), not a qits-picker: an
-           open-when-empty option list is right for a sidebar and wrong above content. -->
+           open-when-empty option list is right for a sidebar and wrong above content. The list is
+           the selected CATEGORY's stories — categories are the sidebar's rows and the ?category=
+           query parameter, addressable state within the place. -->
       <div class="pages">
         <label class="rev">
           <span class="rev-label">Story</span>
           <select (change)="onPagePicked($event)">
-            @for (page of pages(); track page.path) {
+            @for (page of visiblePages(); track page.path) {
               <option [value]="page.path" [selected]="page.path === selectedPage()">
-                {{ page.label }}
+                {{ page.story }}
               </option>
             }
           </select>
@@ -140,6 +123,7 @@ export class MarkdownBundle {
   private readonly http = inject(HttpClient);
   private readonly catalogService = inject(CatalogService);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly route = inject(ActivatedRoute);
 
   readonly site = input.required<string>();
   readonly version = input.required<string>();
@@ -155,17 +139,39 @@ export class MarkdownBundle {
   protected readonly files = computed(() => this.detail()?.files);
   protected readonly pages = computed(() => storyPages(this.files() ?? []));
 
+  private readonly categories = computed(() => categoriesOf(this.pages()));
+
+  /** The route's ?category= — the sidebar's category rows navigate here; absent = the first. */
+  private readonly queryCategory = toSignal(
+    this.route.queryParamMap.pipe(map((params) => params.get('category') ?? undefined)),
+    { initialValue: this.route.snapshot.queryParamMap.get('category') ?? undefined },
+  );
+
+  protected readonly selectedCategory = computed(() => {
+    const asked = this.queryCategory();
+    if (asked && this.categories().includes(asked)) {
+      return asked;
+    }
+    return this.categories()[0] ?? '';
+  });
+
+  /** The selected category's stories — the whole list for a flat (pre-category) bundle. */
+  protected readonly visiblePages = computed(() =>
+    pagesInCategory(this.pages(), this.selectedCategory()),
+  );
+
   private readonly chosenPage = signal<string | undefined>(undefined);
 
-  /** Another bundle is another page list — a choice carried across would name a missing file. */
+  /** Another bundle or category is another page list — a carried choice would name a missing file. */
   private readonly resetChoiceOnBundleChange = effect(() => {
     this.site();
     this.version();
+    this.selectedCategory();
     this.chosenPage.set(undefined);
   });
 
   protected readonly selectedPage = computed(
-    () => this.chosenPage() ?? this.pages()[0]?.path,
+    () => this.chosenPage() ?? this.visiblePages()[0]?.path,
   );
 
   protected onPagePicked(event: Event): void {

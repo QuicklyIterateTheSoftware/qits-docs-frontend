@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
-import { filter, map } from 'rxjs';
+import { filter, map, of, switchMap } from 'rxjs';
 import { QITS_SCOPE, scopeCommands, scopePath } from '@qits/ui-components';
+import { categoriesOf, storyPages } from './bundle-files';
 import { CatalogService, type Catalog, type DocEntry } from './catalog';
 import { APIDOCS_SCOPE, DOC_SECTIONS, USERFLOWS_SCOPE, kindOf } from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
+import { defaultVersion } from './reader';
 
 /** One sub-navigation entry: a section, with its sites (shown when the section is the open one). */
 export interface NavSection {
@@ -70,11 +72,26 @@ export function navSections(catalog: Catalog | undefined): NavSection[] {
               @for (entry of section.docs; track entry.name) {
                 <a
                   class="entry child"
-                  [class.current]="entry.name === currentSite()"
+                  [class.current]="entry.name === currentSite() && !activeCategory()"
                   [attr.aria-current]="entry.name === currentSite() ? 'page' : null"
                   [routerLink]="commands(entry.name)"
                   >{{ displayName(section.route, entry) }}</a
                 >
+                <!-- The open userflows site's categories, one more child level — the same
+                     rail idiom, addressed as ?category= (state within the place, the file-path
+                     rule): a click lands on the site's newest content narrowed to the category. -->
+                @if (entry.name === currentSite()) {
+                  @for (category of categories(); track category) {
+                    <a
+                      class="entry child grand"
+                      [class.current]="category === activeCategory()"
+                      [attr.aria-current]="category === activeCategory() ? 'page' : null"
+                      [routerLink]="commands(entry.name)"
+                      [queryParams]="{ category }"
+                      >{{ category }}</a
+                    >
+                  }
+                }
               }
             }
           </li>
@@ -130,6 +147,10 @@ export function navSections(catalog: Catalog | undefined): NavSection[] {
     .entry.child.current {
       border-left-color: #4338ca;
       background: #e5e7eb;
+    }
+    .entry.child.grand {
+      margin-left: 22px;
+      font-size: 12px;
     }
     .hint {
       margin: 6px 10px;
@@ -192,6 +213,47 @@ export class DocsNavTree {
   protected readonly currentSite = computed(
     () => parseReadPath(this.insideSegments()).site || undefined,
   );
+
+  private readonly readVersion = computed(
+    () => parseReadPath(this.insideSegments()).version,
+  );
+
+  /** The open userflows site's version list — what resolves the bundle whose categories show. */
+  private readonly siteVersions = toSignal(
+    toObservable(this.currentSite).pipe(
+      switchMap((site) =>
+        site && kindOf(site) === 'userflows'
+          ? this.catalogService.versions(site)
+          : of(undefined),
+      ),
+    ),
+  );
+
+  private readonly bundleDetail = toSignal(
+    toObservable(
+      computed(() => {
+        const site = this.currentSite();
+        const version =
+          this.readVersion() ?? defaultVersion(this.siteVersions()?.versions ?? []);
+        return site && version && kindOf(site) === 'userflows' ? { site, version } : undefined;
+      }),
+    ).pipe(
+      switchMap((at) => (at ? this.catalogService.version(at.site, at.version) : of(undefined))),
+    ),
+  );
+
+  protected readonly categories = computed(() =>
+    categoriesOf(storyPages(this.bundleDetail()?.files ?? [])),
+  );
+
+  /** The category in the URL's query, or the bundle's first — mirrors the reader's own default. */
+  protected readonly activeCategory = computed(() => {
+    if (!this.categories().length) {
+      return undefined;
+    }
+    const asked = new URLSearchParams(this.url().split('?')[1] ?? '').get('category');
+    return asked && this.categories().includes(asked) ? asked : this.categories()[0];
+  });
 
   /**
    * Which section is open: the section route in the URL, or — while reading — the read site's own

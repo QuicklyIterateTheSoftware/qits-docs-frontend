@@ -262,6 +262,8 @@ export class Reader {
     if (site && version) {
       void this.router.navigate(
         readCommands(site, version, scopeCommands(this.scopeSource?.scope())),
+        // A version hop must not lose the ?category= narrowing the sidebar chose.
+        { queryParamsHandling: 'preserve' },
       );
     }
   }
