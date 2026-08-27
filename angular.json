@@ -25,16 +25,26 @@
               }
             ],
             "styles": [
-              "src/styles.css"
+              "src/styles.css",
+              "node_modules/swagger-ui-dist/swagger-ui.css"
             ],
-            "baseHref": "/"
+            "baseHref": "/",
+            "allowedCommonJsDependencies": [
+              "swagger-ui-dist/swagger-ui-es-bundle.js",
+              "cytoscape-fcose",
+              "@braintree/sanitize-url",
+              "dayjs",
+              "cytoscape-cose-bilkent",
+              "fastdom",
+              "fastdom/extensions/fastdom-promised.js"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
+                  "maximumWarning": "640kB",
                   "maximumError": "1MB"
                 },
                 {
