@@ -1,7 +1,9 @@
 import { Routes, type CanMatchFn, type UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
+import { DOC_SECTIONS } from './doc-kind';
 import { Reader } from './reader';
 import { Scopes } from './scopes';
+import { Section } from './section';
 
 /**
  * QitsMainLayout is the ROOT ROUTE COMPONENT, not a tag wrapped around the pages — the platform's
@@ -19,9 +21,18 @@ import { Scopes } from './scopes';
  *
  * There is no scope route any more. Browsing scope by scope is the sidebar's job now, and a page
  * built from the same `catalog()` was a second implementation of the same list.
+ *
+ * The three SECTION routes (`storybook`, `apidocs`, `userflows`) are addresses on purpose — the
+ * landing page's cards and the sidebar's section headers link to them, and a section URL is one a
+ * person can hand someone. Derived from DOC_SECTIONS so a fourth kind arrives as one entry there.
  */
 const OWN: Routes = [
   { path: '', component: Scopes },
+  ...DOC_SECTIONS.map((section) => ({
+    path: section.route,
+    component: Section,
+    data: { kind: section.kind },
+  })),
   { path: 'read/**', component: Reader },
 ];
 

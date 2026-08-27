@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { QITS_SCOPE, scopeCommands } from '@qits/ui-components';
 import { CatalogService } from './catalog';
+import { DOC_SECTIONS, kindOf } from './doc-kind';
 import { readCommands } from './doc-url';
 
 /**
@@ -56,7 +57,19 @@ import { readCommands } from './doc-url';
           </ul>
         }
       } @else {
-        <p class="lede">Pick a package in the sidebar to read its documentation.</p>
+        <!-- The unscoped landing: the three sections as cards, each an address of its own. The
+             per-site browsing stays the sidebar's; what this page owns is the map. -->
+        <div class="sections">
+          @for (section of sections(); track section.route) {
+            <a class="card" [routerLink]="sectionCommands(section.route)">
+              <span class="card-title">{{ section.label }}</span>
+              <span class="card-description">{{ section.description }}</span>
+              <span class="card-count">
+                {{ section.count }} site{{ section.count === 1 ? '' : 's' }}
+              </span>
+            </a>
+          }
+        </div>
       }
     } @else {
       <p class="empty">Loading…</p>
@@ -110,6 +123,40 @@ import { readCommands } from './doc-url';
       padding: 1px 4px;
       border-radius: 4px;
     }
+    .sections {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .card:hover {
+      border-color: #c7d2fe;
+      background: #f8faff;
+    }
+    .card-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: #111827;
+    }
+    .card-description {
+      font-size: 13px;
+      color: #6b7280;
+      flex: 1;
+    }
+    .card-count {
+      font-size: 12px;
+      color: #6b7280;
+    }
   `,
 })
 export class Scopes {
@@ -152,5 +199,17 @@ export class Scopes {
 
   protected commands(site: string): string[] {
     return readCommands(site, undefined, scopeCommands(this.scopeSource?.scope()));
+  }
+
+  /** The three section cards, each with how many sites it currently holds. */
+  protected readonly sections = computed(() =>
+    DOC_SECTIONS.map((section) => ({
+      ...section,
+      count: (this.catalog() ?? []).filter((entry) => kindOf(entry.name) === section.kind).length,
+    })),
+  );
+
+  protected sectionCommands(route: string): string[] {
+    return [...scopeCommands(this.scopeSource?.scope()), route];
   }
 }

@@ -24,9 +24,33 @@ export function kindOf(site: string): DocKind {
   return 'storybook';
 }
 
-/** The sub-navigation sections, in display order, with their headers. */
-export const DOC_SECTIONS: readonly { kind: DocKind; label: string }[] = [
-  { kind: 'storybook', label: 'Storybook' },
-  { kind: 'apidocs', label: 'API docs' },
-  { kind: 'userflows', label: 'Userflows' },
+/**
+ * The sub-navigation sections, in display order: header, the route segment each is addressable
+ * under (`/storybook`, `/apidocs`, `/userflows` — scope-prefixed like every page here), and a
+ * one-line description the landing page's cards carry.
+ */
+export const DOC_SECTIONS: readonly {
+  kind: DocKind;
+  label: string;
+  route: string;
+  description: string;
+}[] = [
+  {
+    kind: 'storybook',
+    label: 'Storybook',
+    route: 'storybook',
+    description: 'Component workbenches and other published sites, framed whole.',
+  },
+  {
+    kind: 'apidocs',
+    label: 'API docs',
+    route: 'apidocs',
+    description: 'OpenAPI documents per service, rendered with swagger-ui.',
+  },
+  {
+    kind: 'userflows',
+    label: 'Userflows',
+    route: 'userflows',
+    description: 'Per-commit user stories with their recorded service interactions.',
+  },
 ];

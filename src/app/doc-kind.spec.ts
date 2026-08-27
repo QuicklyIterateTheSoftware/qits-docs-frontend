@@ -29,6 +29,10 @@ describe('doc kinds and the sub-navigation', () => {
     expect(sections.map((section) => section.label)).toEqual(
       DOC_SECTIONS.map((section) => section.label),
     );
+    // Each section is an ADDRESS: the sidebar entry and the landing card link to its route.
+    expect(sections.map((section) => section.route)).toEqual(
+      ['storybook', 'apidocs', 'userflows'],
+    );
     // Storybook keeps its scope grouping; the special scopes render flat (scope label null) —
     // repeating @userflows under a header that says Userflows would be saying it twice.
     expect(sections[0].groups[0].scope).toBe('@qits');

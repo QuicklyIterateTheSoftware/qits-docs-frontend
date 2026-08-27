@@ -5,6 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
 import { Reader } from './reader';
 import { Scopes } from './scopes';
+import { Section } from './section';
 
 /**
  * Every page of this application is addressable three times — its own path, the same path under a
@@ -34,6 +35,18 @@ describe('app routes', () => {
   it('serves the landing page unscoped and under a repository', async () => {
     expect(await resolve('/')).toBe(Scopes);
     expect(await resolve('/qits/services/qits-docs')).toBe(Scopes);
+  });
+
+  it('serves the three section pages, unscoped and under a repository', async () => {
+    const router = TestBed.inject(Router);
+    for (const section of ['storybook', 'apidocs', 'userflows']) {
+      expect(await resolve(`/${section}`)).toBe(Section);
+      expect(await resolve(`/qits/services/qits-docs/${section}`)).toBe(Section);
+      // The kind rides the route's data — the one component serves all three.
+      let node = router.routerState.snapshot.root;
+      while (node.firstChild) node = node.firstChild;
+      expect(node.data['kind']).toBe(section === 'apidocs' ? 'apidocs' : section);
+    }
   });
 
   it('serves the reader in both spellings', async () => {

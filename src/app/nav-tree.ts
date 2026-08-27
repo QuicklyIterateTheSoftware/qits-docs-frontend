@@ -13,9 +13,13 @@ import { CatalogService, type Catalog, type DocEntry, type DocVersion } from './
 import { APIDOCS_SCOPE, DOC_SECTIONS, USERFLOWS_SCOPE } from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
 
-/** One sub-navigation section: its header, and its site groups (scope label null = unlabelled). */
+/**
+ * One sub-navigation section: its header, the route it links to, and its site groups (scope label
+ * null = unlabelled).
+ */
 export interface NavSection {
   readonly label: string;
+  readonly route: string;
   readonly groups: readonly { readonly scope: string | null; readonly docs: readonly DocEntry[] }[];
 }
 
@@ -33,11 +37,16 @@ export function navSections(catalog: Catalog | undefined): NavSection[] {
       case 'userflows': {
         const scope = section.kind === 'apidocs' ? APIDOCS_SCOPE : USERFLOWS_SCOPE;
         const docs = scopes.find((group) => group.scope === scope)?.docs ?? [];
-        return { label: section.label, groups: docs.length ? [{ scope: null, docs }] : [] };
+        return {
+          label: section.label,
+          route: section.route,
+          groups: docs.length ? [{ scope: null, docs }] : [],
+        };
       }
       case 'storybook':
         return {
           label: section.label,
+          route: section.route,
           groups: scopes
             .filter((group) => group.scope !== APIDOCS_SCOPE && group.scope !== USERFLOWS_SCOPE)
             .map((group) => ({ scope: group.scope, docs: group.docs })),
@@ -107,7 +116,13 @@ export function versionOptions(
   template: `
     @if (catalog()) {
       @for (section of sections(); track section.label) {
-        <p class="section">{{ section.label }}</p>
+        <a
+          class="section"
+          [class.current]="section.route === activeSection()"
+          [attr.aria-current]="section.route === activeSection() ? 'page' : null"
+          [routerLink]="sectionCommands(section.route)"
+          >{{ section.label }}</a
+        >
         @if (!section.groups.length) {
           <p class="hint">Nothing published yet</p>
         }
@@ -168,15 +183,27 @@ export function versionOptions(
       min-width: 0;
       padding: 4px 0 8px;
     }
-    /* The three sub-navigation headers — one visual rank above a scope label. */
+    /* The three sub-navigation entries — links to their section pages, one visual rank above a
+       scope label. */
     .section {
+      display: block;
       margin: 14px 0 2px;
-      padding: 0 10px;
+      padding: 2px 10px;
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       color: #374151;
+      text-decoration: none;
+      border-radius: 6px;
+    }
+    .section:hover {
+      background: #f3f4f6;
+      color: #111827;
+    }
+    .section.current {
+      color: #111827;
+      background: #eef2ff;
     }
     .section:first-child {
       margin-top: 4px;
@@ -268,18 +295,31 @@ export class DocsNavTree {
     { initialValue: this.router.url },
   );
 
-  private readonly read = computed(() => {
-    // Query and fragment are not part of the grammar. Segments are decoded because the router
-    // encoded them, and `parseReadPath` is written against the decoded names the reader also sees.
-    //
-    // The scope path is trimmed off FIRST. Under `/qits/services/qits-docs/read/@qits/…` the three
-    // scope segments are not part of the site name, and left in they make the site
-    // `qits/services/qits-docs/read/@qits/…` — which matches no entry, so the picker never appears.
+  /**
+   * The URL's segments inside this app's own grammar — query, fragment and the scope path trimmed
+   * off FIRST. Under `/qits/services/qits-docs/read/@qits/…` the three scope segments are not part
+   * of the site name, and left in they make the site `qits/services/qits-docs/read/@qits/…` —
+   * which matches no entry, so the picker never appears. Decoded because the router encoded them.
+   */
+  private readonly insideSegments = computed(() => {
     const path = this.url().split('#')[0].split('?')[0];
     const base = scopePath(this.scopeSource?.scope());
     const inside = path.startsWith(base) ? path.slice(base.length) : path;
-    return parseReadPath(inside.split('/').filter(Boolean).map(decodeURIComponent));
+    return inside.split('/').filter(Boolean).map(decodeURIComponent);
   });
+
+  private readonly read = computed(() => parseReadPath(this.insideSegments()));
+
+  /** Which section page is open, if any — what marks its sidebar entry current. */
+  protected readonly activeSection = computed(() => {
+    const first = this.insideSegments()[0];
+    return DOC_SECTIONS.some((section) => section.route === first) ? first : undefined;
+  });
+
+  /** Bound in the template; a template can only reach a member, not an imported function. */
+  protected sectionCommands(route: string): string[] {
+    return [...this.prefix(), route];
+  }
 
   /** Empty on the landing page, which is how the template knows to nest the picker nowhere. */
   protected readonly site = computed(() => this.read().site);
