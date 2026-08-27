@@ -16,7 +16,6 @@ import { catchError, map, of, switchMap } from 'rxjs';
 import { Marked } from 'marked';
 import { baseUrl } from 'marked-base-url';
 import DOMPurify from 'dompurify';
-import { QitsPicker, type QitsPickerOption } from '@qits/ui-components';
 import { CatalogService } from './catalog';
 
 /** The bundle's pages: every markdown file, labelled by its story directory (or its own name). */
@@ -51,17 +50,21 @@ export function pageBaseUrl(site: string, version: string, page: string): string
 @Component({
   selector: 'docs-markdown-bundle',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [QitsPicker],
   template: `
     @if (pages().length > 1) {
+      <!-- The platform's on-page selector shape (.rev, the code pages'), not a qits-picker: an
+           open-when-empty option list is right for a sidebar and wrong above content. -->
       <div class="pages">
-        <qits-picker
-          [options]="pageOptions()"
-          [value]="selectedPage()"
-          (valueChange)="onPage($event)"
-          ariaLabel="User story"
-          placeholder="Pick a story"
-        />
+        <label class="rev">
+          <span class="rev-label">Story</span>
+          <select (change)="onPagePicked($event)">
+            @for (page of pages(); track page.path) {
+              <option [value]="page.path" [selected]="page.path === selectedPage()">
+                {{ page.label }}
+              </option>
+            }
+          </select>
+        </label>
       </div>
     }
     @if (html(); as rendered) {
@@ -81,6 +84,26 @@ export function pageBaseUrl(site: string, version: string, page: string): string
       max-width: 900px;
       margin: 0 auto;
       padding: 16px 24px 0;
+    }
+    .rev {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+    .rev-label {
+      color: #6b7280;
+      font-size: 0.75rem;
+    }
+    .rev select {
+      align-self: flex-start;
+      max-width: 100%;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.35rem;
+      background: #fff;
+      color: #111827;
+      font: inherit;
+      font-size: 0.85rem;
     }
     .page {
       max-width: 900px;
@@ -132,10 +155,6 @@ export class MarkdownBundle {
   protected readonly files = computed(() => this.detail()?.files);
   protected readonly pages = computed(() => storyPages(this.files() ?? []));
 
-  protected readonly pageOptions = computed<QitsPickerOption<string>[]>(() =>
-    this.pages().map((page) => ({ value: page.path, label: page.label })),
-  );
-
   private readonly chosenPage = signal<string | undefined>(undefined);
 
   /** Another bundle is another page list — a choice carried across would name a missing file. */
@@ -149,7 +168,8 @@ export class MarkdownBundle {
     () => this.chosenPage() ?? this.pages()[0]?.path,
   );
 
-  protected onPage(page: string | undefined): void {
+  protected onPagePicked(event: Event): void {
+    const page = (event.target as HTMLSelectElement).value;
     if (page) {
       this.chosenPage.set(page);
     }

@@ -14,6 +14,27 @@ export type DocKind = 'storybook' | 'apidocs' | 'userflows';
 export const USERFLOWS_SCOPE = '@userflows';
 export const APIDOCS_SCOPE = '@apidocs';
 
+/** The branch a version was published from, when its publisher recorded one. */
+export function branchOf(version: {
+  readonly metadata?: Readonly<Record<string, string>>;
+}): string | undefined {
+  return version.metadata?.['git.branch.name'];
+}
+
+/** The distinct branches of a version list, in list (newest-first) order, unbranched skipped. */
+export function distinctBranches(
+  versions: readonly { readonly metadata?: Readonly<Record<string, string>> }[],
+): string[] {
+  const seen: string[] = [];
+  for (const version of versions) {
+    const branch = branchOf(version);
+    if (branch && !seen.includes(branch)) {
+      seen.push(branch);
+    }
+  }
+  return seen;
+}
+
 export function kindOf(site: string): DocKind {
   if (site.startsWith(USERFLOWS_SCOPE + '/')) {
     return 'userflows';
