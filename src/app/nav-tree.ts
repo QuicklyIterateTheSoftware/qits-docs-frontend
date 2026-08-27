@@ -258,15 +258,23 @@ export class DocsNavTree {
   /** The URL's segments inside this app's own grammar — scope path and query/fragment trimmed. */
   private readonly insideSegments = computed(() => {
     const path = this.url().split('#')[0].split('?')[0];
+    // The scope path ends in a slash and the scope root's own URL usually does not — normalise
+    // before the prefix test, or the landing reads as segments of some phantom site.
+    const withSlash = path.endsWith('/') ? path : `${path}/`;
     const base = scopePath(this.scopeSource?.scope());
-    const inside = path.startsWith(base) ? path.slice(base.length) : path;
+    const inside = withSlash.startsWith(base) ? withSlash.slice(base.length) : withSlash;
     return inside.split('/').filter(Boolean).map(decodeURIComponent);
   });
 
-  /** The site being read, empty elsewhere — what marks a child row current. */
-  protected readonly currentSite = computed(
-    () => parseReadPath(this.insideSegments()).site || undefined,
-  );
+  /**
+   * The site being read, undefined elsewhere — what marks a child row current. Gated on the
+   * literal `read` segment: `parseReadPath` reads ANY path as a site, and without the gate a
+   * section page like `/userflows` would count as reading a site called "userflows".
+   */
+  protected readonly currentSite = computed(() => {
+    const segments = this.insideSegments();
+    return segments[0] === 'read' ? parseReadPath(segments).site || undefined : undefined;
+  });
 
   private readonly readVersion = computed(
     () => parseReadPath(this.insideSegments()).version,
