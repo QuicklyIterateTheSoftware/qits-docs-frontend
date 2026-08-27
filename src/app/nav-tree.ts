@@ -119,10 +119,16 @@ export function navSections(catalog: Catalog | undefined): NavSection[] {
       flex-direction: column;
       gap: 2px;
     }
+    /* Every row here continues the layout's child-rail idiom: the Docs entry above carries the
+       rail, so a section is one rail-layer below it, a site one below that, a category one more —
+       nesting is the rail plus one indent step per level, and only the color marks the current
+       row. */
     .entry {
       display: block;
-      padding: 4px 10px;
-      border-left: 2px solid transparent;
+      margin-left: 10px;
+      padding: 4px 10px 4px 12px;
+      border-left: 2px solid #e5e7eb;
+      border-radius: 0 6px 6px 0;
       font-size: 13px;
       color: #4b5563;
       text-decoration: none;
@@ -137,19 +143,14 @@ export function navSections(catalog: Catalog | undefined): NavSection[] {
       color: #111827;
       font-weight: 600;
     }
-    /* The child idiom the layout itself uses for a row belonging to the one above it. */
     .entry.child {
-      margin-left: 10px;
-      padding-left: 12px;
-      border-left: 2px solid #e5e7eb;
-      border-radius: 0 6px 6px 0;
+      margin-left: 22px;
     }
     .entry.child.current {
-      border-left-color: #4338ca;
       background: #e5e7eb;
     }
     .entry.child.grand {
-      margin-left: 22px;
+      margin-left: 34px;
       font-size: 12px;
     }
     .hint {
