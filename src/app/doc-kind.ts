@@ -35,6 +35,22 @@ export function distinctBranches(
   return seen;
 }
 
+/**
+ * Whether a site is a repository's own, matched on the short name — the part after the npm scope —
+ * because no field on either side records the link. Three spellings occur in the wild: the exact
+ * name (`@userflows/qits-githost` from qits-githost), a repository whose name carries a prefix the
+ * site drops (`@qits/ui-components` from qits-spa-ui-components), and a site that extends its
+ * repository's name (`qits-cli-bootstrap` from qits-cli). A heuristic, said out loud — and under a
+ * repository scope a missed match must read as "nothing published", never as someone else's docs.
+ */
+export function siteBelongsToRepository(shortName: string, repository: string): boolean {
+  return (
+    shortName === repository ||
+    repository.endsWith(shortName) ||
+    shortName.startsWith(repository)
+  );
+}
+
 export function kindOf(site: string): DocKind {
   if (site.startsWith(USERFLOWS_SCOPE + '/')) {
     return 'userflows';

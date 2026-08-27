@@ -5,7 +5,13 @@ import { filter, map, of, switchMap } from 'rxjs';
 import { QITS_SCOPE, scopeCommands, scopePath } from '@qits/ui-components';
 import { categoriesOf, storyPages } from './bundle-files';
 import { CatalogService, type Catalog, type DocEntry } from './catalog';
-import { APIDOCS_SCOPE, DOC_SECTIONS, USERFLOWS_SCOPE, kindOf } from './doc-kind';
+import {
+  APIDOCS_SCOPE,
+  DOC_SECTIONS,
+  USERFLOWS_SCOPE,
+  kindOf,
+  siteBelongsToRepository,
+} from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
 import { defaultVersion } from './reader';
 
@@ -17,33 +23,39 @@ export interface NavSection {
 }
 
 /**
- * The catalog folded into the three sub-navigation entries. Sites keep the catalog's order; the
- * two special scopes' sites drop their scope prefix from display (repeating `@userflows` under an
- * entry that says Userflows would be saying it twice), and storybook keeps full names since its
- * scopes vary.
+ * The catalog folded into the three sub-navigation entries — narrowed to one repository's own
+ * sites when one is given, because under a repository scope another repository's docs are noise
+ * with a misleading address. Sites keep the catalog's order; the two special scopes' sites drop
+ * their scope prefix from display (repeating `@userflows` under an entry that says Userflows would
+ * be saying it twice), and storybook keeps full names since its scopes vary.
  */
-export function navSections(catalog: Catalog | undefined): NavSection[] {
+export function navSections(catalog: Catalog | undefined, repository?: string): NavSection[] {
   const scopes = catalog?.scopes ?? [];
   return DOC_SECTIONS.map((section) => ({
     label: section.label,
     route: section.route,
-    docs:
-      section.kind === 'storybook'
-        ? scopes
-            .filter((group) => group.scope !== APIDOCS_SCOPE && group.scope !== USERFLOWS_SCOPE)
-            .flatMap((group) => group.docs)
-        : (scopes.find(
-            (group) =>
-              group.scope === (section.kind === 'apidocs' ? APIDOCS_SCOPE : USERFLOWS_SCOPE),
-          )?.docs ?? []),
+    docs: (section.kind === 'storybook'
+      ? scopes
+          .filter((group) => group.scope !== APIDOCS_SCOPE && group.scope !== USERFLOWS_SCOPE)
+          .flatMap((group) => group.docs)
+      : (scopes.find(
+          (group) =>
+            group.scope === (section.kind === 'apidocs' ? APIDOCS_SCOPE : USERFLOWS_SCOPE),
+        )?.docs ?? [])
+    ).filter((entry) => !repository || siteBelongsToRepository(entry.shortName, repository)),
   }));
 }
 
 /**
  * The docs sub-menu under this application's entry in the platform navigation: the three section
- * entries, and — only under the OPEN section — its sites as child rows. That is the platform
+ * entries, and — only under the OPEN section — its next level as child rows. That is the platform
  * sidebar's own shape one level down: `repositoryRows()` shows a repository's detail entries only
  * for the repository in scope, and a child row is the same 2px-rail indent idiom.
+ *
+ * <p><b>Under a repository scope there is no site layer.</b> The scope IS the site selection —
+ * sections hold only that repository's docs (empty ones are dropped), a section link opens its one
+ * site directly, and a userflows section's children are the categories themselves. Unscoped, the
+ * menu keeps all three levels: section, site, category.
  *
  * <p><b>Nothing here selects a version.</b> A site link opens its newest content (the reader
  * defaults userflows to the latest `main` bundle), and switching branch or version is the reader's
@@ -61,35 +73,50 @@ export function navSections(catalog: Catalog | undefined): NavSection[] {
           <li>
             <a
               class="entry"
-              [class.current]="section.route === activeSection() && !currentSite()"
-              [attr.aria-current]="
-                section.route === activeSection() && !currentSite() ? 'page' : null
-              "
-              [routerLink]="sectionCommands(section.route)"
+              [class.current]="sectionCurrent(section.route)"
+              [attr.aria-current]="sectionCurrent(section.route) ? 'page' : null"
+              [routerLink]="sectionLink(section)"
               >{{ section.label }}</a
             >
             @if (section.route === activeSection()) {
-              @for (entry of section.docs; track entry.name) {
-                <a
-                  class="entry child"
-                  [class.current]="entry.name === currentSite() && !activeCategory()"
-                  [attr.aria-current]="entry.name === currentSite() ? 'page' : null"
-                  [routerLink]="commands(entry.name)"
-                  >{{ displayName(section.route, entry) }}</a
-                >
-                <!-- The open userflows site's categories, one more child level — the same
-                     rail idiom, addressed as ?category= (state within the place, the file-path
-                     rule): a click lands on the site's newest content narrowed to the category. -->
-                @if (entry.name === currentSite()) {
+              @if (scopedRepository()) {
+                <!-- Scoped below a repository the middle layer disappears: the section is the
+                     repository's own site, so its categories are the next level directly. -->
+                @if (categorySite(); as site) {
                   @for (category of categories(); track category) {
                     <a
-                      class="entry child grand"
+                      class="entry child"
                       [class.current]="category === activeCategory()"
                       [attr.aria-current]="category === activeCategory() ? 'page' : null"
-                      [routerLink]="commands(entry.name)"
+                      [routerLink]="commands(site)"
                       [queryParams]="{ category }"
                       >{{ category }}</a
                     >
+                  }
+                }
+              } @else {
+                @for (entry of section.docs; track entry.name) {
+                  <a
+                    class="entry child"
+                    [class.current]="entry.name === currentSite() && !activeCategory()"
+                    [attr.aria-current]="entry.name === currentSite() ? 'page' : null"
+                    [routerLink]="commands(entry.name)"
+                    >{{ displayName(section.route, entry) }}</a
+                  >
+                  <!-- The open userflows site's categories, one more child level — the same
+                       rail idiom, addressed as ?category= (state within the place, the file-path
+                       rule): a click lands on the site's newest content narrowed to the category. -->
+                  @if (entry.name === currentSite()) {
+                    @for (category of categories(); track category) {
+                      <a
+                        class="entry child grand"
+                        [class.current]="category === activeCategory()"
+                        [attr.aria-current]="category === activeCategory() ? 'page' : null"
+                        [routerLink]="commands(entry.name)"
+                        [queryParams]="{ category }"
+                        >{{ category }}</a
+                      >
+                    }
                   }
                 }
               }
@@ -172,12 +199,23 @@ export class DocsNavTree {
    */
   private readonly prefix = computed(() => scopeCommands(this.scopeSource?.scope()));
 
+  /** The repository the address puts on screen — what narrows this menu to one component's docs. */
+  protected readonly scopedRepository = computed(() => this.scopeSource?.scope().repository);
+
   protected commands(site: string): string[] {
     return readCommands(site, undefined, this.prefix());
   }
 
   protected sectionCommands(route: string): string[] {
     return [...this.prefix(), route];
+  }
+
+  /** Scoped, a section with exactly one site is that site — the link skips the listing page. */
+  protected sectionLink(section: NavSection): string[] {
+    if (this.scopedRepository() && section.docs.length === 1) {
+      return this.commands(section.docs[0].name);
+    }
+    return this.sectionCommands(section.route);
   }
 
   /** Special-scope sites drop the scope from display; storybook keeps full names. */
@@ -187,7 +225,11 @@ export class DocsNavTree {
 
   protected readonly catalog = toSignal(this.catalogService.catalog());
 
-  protected readonly sections = computed(() => navSections(this.catalog()));
+  /** Scoped, a section with none of this repository's docs is dropped rather than shown empty. */
+  protected readonly sections = computed(() => {
+    const folded = navSections(this.catalog(), this.scopedRepository());
+    return this.scopedRepository() ? folded.filter((section) => section.docs.length) : folded;
+  });
 
   /**
    * The URL, as a signal — Angular has no signal-valued `Router.url`, and this menu lives in the
@@ -219,24 +261,40 @@ export class DocsNavTree {
     () => parseReadPath(this.insideSegments()).version,
   );
 
-  /** The open userflows site's version list — what resolves the bundle whose categories show. */
+  /**
+   * The userflows site whose categories this menu shows: the one being read, or — under a
+   * repository scope, where the rows show without a read in progress — the repository's own.
+   */
+  protected readonly categorySite = computed(() => {
+    const read = this.currentSite();
+    if (read) {
+      return kindOf(read) === 'userflows' ? read : undefined;
+    }
+    if (!this.scopedRepository()) {
+      return undefined;
+    }
+    const userflows = DOC_SECTIONS.find((section) => section.kind === 'userflows')?.route;
+    return this.sections().find((section) => section.route === userflows)?.docs[0]?.name;
+  });
+
+  /** The category site's version list — what resolves the bundle whose categories show. */
   private readonly siteVersions = toSignal(
-    toObservable(this.currentSite).pipe(
-      switchMap((site) =>
-        site && kindOf(site) === 'userflows'
-          ? this.catalogService.versions(site)
-          : of(undefined),
-      ),
+    toObservable(this.categorySite).pipe(
+      switchMap((site) => (site ? this.catalogService.versions(site) : of(undefined))),
     ),
   );
 
   private readonly bundleDetail = toSignal(
     toObservable(
       computed(() => {
-        const site = this.currentSite();
+        const site = this.categorySite();
+        if (!site) {
+          return undefined;
+        }
         const version =
-          this.readVersion() ?? defaultVersion(this.siteVersions()?.versions ?? []);
-        return site && version && kindOf(site) === 'userflows' ? { site, version } : undefined;
+          (this.currentSite() === site ? this.readVersion() : undefined) ??
+          defaultVersion(this.siteVersions()?.versions ?? []);
+        return version ? { site, version } : undefined;
       }),
     ).pipe(
       switchMap((at) => (at ? this.catalogService.version(at.site, at.version) : of(undefined))),
@@ -247,14 +305,28 @@ export class DocsNavTree {
     categoriesOf(storyPages(this.bundleDetail()?.files ?? [])),
   );
 
-  /** The category in the URL's query, or the bundle's first — mirrors the reader's own default. */
+  /**
+   * The category in the URL's query, or the bundle's first — mirrors the reader's own default.
+   * Only meaningful while READING: on a listing page no category is on screen, so none is current.
+   */
   protected readonly activeCategory = computed(() => {
-    if (!this.categories().length) {
+    if (!this.currentSite() || !this.categories().length) {
       return undefined;
     }
     const asked = new URLSearchParams(this.url().split('?')[1] ?? '').get('category');
     return asked && this.categories().includes(asked) ? asked : this.categories()[0];
   });
+
+  /**
+   * A section row is current when it is the open one and nothing below it claims the mark — a
+   * child site unscoped, a category row scoped.
+   */
+  protected sectionCurrent(route: string): boolean {
+    if (route !== this.activeSection()) {
+      return false;
+    }
+    return this.scopedRepository() ? !this.activeCategory() : !this.currentSite();
+  }
 
   /**
    * Which section is open: the section route in the URL, or — while reading — the read site's own
