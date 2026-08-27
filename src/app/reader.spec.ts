@@ -1,8 +1,9 @@
 import { provideZonelessChangeDetection } from '@angular/core';
+import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { ActivatedRoute, UrlSegment } from '@angular/router';
+import { ActivatedRoute, UrlSegment, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { Reader } from './reader';
 
@@ -24,6 +25,10 @@ describe('Reader', () => {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
+        // The reader injects Router for its select-driven navigation; the stubbed ActivatedRoute
+        // below still owns what the component reads.
+        provideRouter([]),
+        provideLocationMocks(),
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: ActivatedRoute, useValue: { url, snapshot: { url: url.value } } },
