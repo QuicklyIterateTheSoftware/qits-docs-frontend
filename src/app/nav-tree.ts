@@ -52,10 +52,13 @@ export function navSections(catalog: Catalog | undefined, repository?: string): 
  * sidebar's own shape one level down: `repositoryRows()` shows a repository's detail entries only
  * for the repository in scope, and a child row is the same 2px-rail indent idiom.
  *
- * <p><b>Under a repository scope there is no site layer.</b> The scope IS the site selection —
- * sections hold only that repository's docs (empty ones are dropped), a section link opens its one
- * site directly, and a userflows section's children are the categories themselves. Unscoped, the
- * menu keeps all three levels: section, site, category.
+ * <p><b>Under a repository scope there is no site layer, and the tree is always open.</b> The
+ * scope IS the site selection — sections hold only that repository's docs, a section link opens
+ * its one site directly, and a userflows section's children are the categories themselves,
+ * visible without clicking into the section first. All three sections stay listed even when the
+ * repository has published nothing of that kind: the row is the map, and its page says what is
+ * missing and how it gets here. Unscoped, the menu keeps all three levels — section, site,
+ * category — expanding only the open section, because there the catalog can be long.
  *
  * <p><b>Nothing here selects a version.</b> A site link opens its newest content (the reader
  * defaults userflows to the latest `main` bundle), and switching branch or version is the reader's
@@ -78,23 +81,24 @@ export function navSections(catalog: Catalog | undefined, repository?: string): 
               [routerLink]="sectionLink(section)"
               >{{ section.label }}</a
             >
-            @if (section.route === activeSection()) {
-              @if (scopedRepository()) {
-                <!-- Scoped below a repository the middle layer disappears: the section is the
-                     repository's own site, so its categories are the next level directly. -->
-                @if (categorySite(); as site) {
-                  @for (category of categories(); track category) {
-                    <a
-                      class="entry child"
-                      [class.current]="category === activeCategory()"
-                      [attr.aria-current]="category === activeCategory() ? 'page' : null"
-                      [routerLink]="commands(site)"
-                      [queryParams]="{ category }"
-                      >{{ category }}</a
-                    >
-                  }
+            @if (scopedRepository()) {
+              <!-- Scoped below a repository the middle layer disappears and nothing waits for a
+                   click: the section is the repository's own site, so its categories are the next
+                   level directly, drawn whatever page is on screen. -->
+              @if (section.route === userflowsRoute && categorySite(); as site) {
+                @for (category of categories(); track category) {
+                  <a
+                    class="entry child"
+                    [class.current]="category === activeCategory()"
+                    [attr.aria-current]="category === activeCategory() ? 'page' : null"
+                    [routerLink]="commands(site)"
+                    [queryParams]="{ category }"
+                    >{{ category }}</a
+                  >
                 }
-              } @else {
+              }
+            } @else {
+              @if (section.route === activeSection()) {
                 @for (entry of section.docs; track entry.name) {
                   <a
                     class="entry child"
@@ -225,11 +229,18 @@ export class DocsNavTree {
 
   protected readonly catalog = toSignal(this.catalogService.catalog());
 
-  /** Scoped, a section with none of this repository's docs is dropped rather than shown empty. */
-  protected readonly sections = computed(() => {
-    const folded = navSections(this.catalog(), this.scopedRepository());
-    return this.scopedRepository() ? folded.filter((section) => section.docs.length) : folded;
-  });
+  /**
+   * All three sections always, scoped or not — an empty one is a place to explain what is
+   * missing, and hiding it would make the menu's shape depend on what happens to be published.
+   */
+  protected readonly sections = computed(() =>
+    navSections(this.catalog(), this.scopedRepository()),
+  );
+
+  /** The userflows section's route — the one section whose scoped children are categories. */
+  protected readonly userflowsRoute = DOC_SECTIONS.find(
+    (section) => section.kind === 'userflows',
+  )?.route;
 
   /**
    * The URL, as a signal — Angular has no signal-valued `Router.url`, and this menu lives in the
@@ -267,14 +278,15 @@ export class DocsNavTree {
    */
   protected readonly categorySite = computed(() => {
     const read = this.currentSite();
-    if (read) {
-      return kindOf(read) === 'userflows' ? read : undefined;
+    if (read && kindOf(read) === 'userflows') {
+      return read;
     }
     if (!this.scopedRepository()) {
       return undefined;
     }
-    const userflows = DOC_SECTIONS.find((section) => section.kind === 'userflows')?.route;
-    return this.sections().find((section) => section.route === userflows)?.docs[0]?.name;
+    // Scoped, the categories stay drawn whatever page is on screen — the repository's own site.
+    return this.sections().find((section) => section.route === this.userflowsRoute)?.docs[0]
+      ?.name;
   });
 
   /** The category site's version list — what resolves the bundle whose categories show. */
