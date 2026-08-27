@@ -19,7 +19,7 @@ describe('Reader', () => {
   }
 
   /** A route, drivable — the reader reads `url`, which the router re-emits on every match. */
-  function render(path = `read/${SITE}`) {
+  async function render(path = `read/${SITE}`) {
     const url = new BehaviorSubject(segments(path));
     TestBed.configureTestingModule({
       providers: [
@@ -29,6 +29,8 @@ describe('Reader', () => {
         { provide: ActivatedRoute, useValue: { url, snapshot: { url: url.value } } },
       ],
     });
+    // Deferred blocks (@defer) compile their dependencies asynchronously.
+    await TestBed.compileComponents();
     const fixture = TestBed.createComponent(Reader);
     fixture.detectChanges();
     return { fixture, url, http: TestBed.inject(HttpTestingController) };
@@ -58,8 +60,8 @@ describe('Reader', () => {
    * Nothing is known yet, so nothing is loaded. The alternative — guessing an address before the
    * version list answers — is how the frame ends up somewhere it should not be.
    */
-  it('renders about:blank until the versions arrive', () => {
-    const { fixture } = render();
+  it('renders about:blank until the versions arrive', async () => {
+    const { fixture } = await render();
     expect(frame(fixture).getAttribute('src')).toBe('about:blank');
   });
 
@@ -68,7 +70,7 @@ describe('Reader', () => {
    * this page inside this page — it actually happened — so the address must always carry a version.
    */
   it('resolves the newest version rather than the bare site URL', async () => {
-    const { fixture, http } = render();
+    const { fixture, http } = await render();
     answerVersions(http, '2026.807.0', '2026.806.0');
     await fixture.whenStable();
 
@@ -79,7 +81,7 @@ describe('Reader', () => {
   });
 
   it('takes the version out of the URL when there is one', async () => {
-    const { fixture, http } = render(`read/${SITE}/-/2026.806.0`);
+    const { fixture, http } = await render(`read/${SITE}/-/2026.806.0`);
     answerVersions(http, '2026.807.0', '2026.806.0');
     await fixture.whenStable();
 
@@ -92,7 +94,7 @@ describe('Reader', () => {
    * every recomputation and the browser would reload a document that had not moved.
    */
   it('keeps the same iframe element when the route re-emits the same URL', async () => {
-    const { fixture, url, http } = render();
+    const { fixture, url, http } = await render();
     answerVersions(http, '2026.807.0');
     await fixture.whenStable();
     const before = frame(fixture);
@@ -105,7 +107,7 @@ describe('Reader', () => {
 
   /** The rail and the picker moved to the platform sidebar. Nothing of them may grow back here. */
   it('carries no navigation of its own', async () => {
-    const { fixture, http } = render();
+    const { fixture, http } = await render();
     answerVersions(http, '2026.807.0');
     await fixture.whenStable();
 

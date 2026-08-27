@@ -4,7 +4,10 @@ import { ActivatedRoute } from '@angular/router';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { switchMap } from 'rxjs';
 import { CatalogService } from './catalog';
+import { kindOf } from './doc-kind';
 import { parseReadPath } from './doc-url';
+import { MarkdownBundle } from './markdown-bundle';
+import { SwaggerBundle } from './swagger-bundle';
 
 /**
  * One bundle, read — and nothing else on the page.
@@ -23,17 +26,36 @@ import { parseReadPath } from './doc-url';
 @Component({
   selector: 'qits-docs-reader',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MarkdownBundle, SwaggerBundle],
   template: `
-    <!-- A plain src-bound frame, and it was briefly wrapped in a keyed loop to force a NEW element
-         per version on the theory that re-pointing an existing frame pushes a joint session history
-         entry while creating a fresh one does not. MEASURED IN CHROME: both push. Opening a
-         document takes history.length from 2 to 4, switching version from 4 to 6 — one entry for
-         the router hop, one for the frame's load, either way. So the loop bought nothing and is
-         gone; what it claimed to prevent is a trait of hosting a whole application in a frame.
-         Reading a document costs two Back presses to leave, and that is not this binding's to fix.
-         (No backticks in this comment: the template is a backtick literal, and one here terminates
-         it — NG1010, from a decorator that then has the wrong number of arguments.) -->
-    <iframe class="bundle" [src]="bundleUrl()" [title]="site() + ' documentation'"></iframe>
+    <!-- Three kinds of bundle, three readers — see doc-kind.ts for the classification. Storybook
+         stays the iframe below; the other two kinds have no index.html to frame, so their readers
+         render the bundle's own files (markdown, an OpenAPI document) in place. -->
+    @switch (kind()) {
+      @case ('userflows') {
+        @if (bundleVersion(); as version) {
+          <docs-markdown-bundle [site]="site()" [version]="version" />
+        }
+      }
+      @case ('apidocs') {
+        @if (bundleVersion(); as version) {
+          <docs-swagger-bundle [site]="site()" [version]="version" />
+        }
+      }
+      @default {
+        <!-- A plain src-bound frame, and it was briefly wrapped in a keyed loop to force a NEW
+             element per version on the theory that re-pointing an existing frame pushes a joint
+             session history entry while creating a fresh one does not. MEASURED IN CHROME: both
+             push. Opening a document takes history.length from 2 to 4, switching version from 4 to
+             6 — one entry for the router hop, one for the frame's load, either way. So the loop
+             bought nothing and is gone; what it claimed to prevent is a trait of hosting a whole
+             application in a frame. Reading a document costs two Back presses to leave, and that
+             is not this binding's to fix. (No backticks in this comment: the template is a
+             backtick literal, and one here terminates it — NG1010, from a decorator that then has
+             the wrong number of arguments.) -->
+        <iframe class="bundle" [src]="bundleUrl()" [title]="site() + ' documentation'"></iframe>
+      }
+    }
   `,
   styles: `
     /* Inside QitsMainLayout's content area, which already scrolls and pads — so this fills the
@@ -76,6 +98,9 @@ export class Reader {
   protected readonly site = computed(() => this.read().site);
   private readonly version = computed(() => this.read().version);
 
+  /** Which reader this site takes; the scope decides (doc-kind.ts). */
+  protected readonly kind = computed(() => kindOf(this.site()));
+
   /**
    * The version list, still fetched here even though the sidebar picker is built from it too.
    *
@@ -100,9 +125,17 @@ export class Reader {
    * <p>The trailing slash is load-bearing. The bundle refers to its assets relatively, so a src
    * without it resolves every one of them a level too high.
    */
+  /**
+   * The version being read — the URL's, or the newest. What the two in-place readers take as their
+   * input, and what the frame's directory URL is built from.
+   */
+  protected readonly bundleVersion = computed(
+    () => this.version() ?? this.loaded()?.versions[0]?.version,
+  );
+
   protected readonly bundleHref = computed(() => {
     const site = this.site();
-    const version = this.version() ?? this.loaded()?.versions[0]?.version;
+    const version = this.bundleVersion();
     // The `read/` check is a backstop for the other direction of the same mistake: if a site ever
     // named this client's own route, the frame would nest again.
     if (!site || !version || site.startsWith('read/')) {
