@@ -66,6 +66,27 @@ describe('app routes', () => {
   });
 
   /**
+   * The middle segment is the repository's component now, and the archetype form it had before
+   * keeps working — the platform serves links in both spellings, and both land on the same page.
+   */
+  it('serves the pages under a repository addressed by its component', async () => {
+    expect(await resolve('/qits/qits-docs/qits-docs-service')).toBe(Scopes);
+    expect(await resolve('/qits/qits-docs/qits-docs-service/storybook')).toBe(Section);
+    expect(
+      await resolve('/qits/qits-ui-components/qits-spa-ui-components/read/@qits/ui-components'),
+    ).toBe(Reader);
+  });
+
+  /**
+   * A component is an open set, so this app's own pages are what the guard excludes — otherwise
+   * `read` would read as a component and a three-segment reader address would show the index.
+   */
+  it('keeps its own pages under a project out of the group form', async () => {
+    expect(await resolve('/qits/read/qits-cli')).toBe(Reader);
+    expect(await resolve('/qits/storybook')).toBe(Section);
+  });
+
+  /**
    * The literal wins, which is why OWN routes come first. `read` is a plausible project slug and
    * `@qits` is not a category, so nothing scoped could claim this — but the ordering is what makes
    * that true rather than the guard.
@@ -76,8 +97,12 @@ describe('app routes', () => {
     expect(await resolve('/read/@qits/ui-components')).toBe(Reader);
   });
 
-  /** A second segment that is not a category is not a scope, so the wildcard takes it. */
-  it('falls back to the landing page for an address that is neither', async () => {
+  /**
+   * The index is the answer either way: a middle segment naming no component of the project reads
+   * as a scope that never settles and shows the landing page, and a first segment nobody has takes
+   * the wildcard to the same place.
+   */
+  it('falls back to the landing page for an address that names nothing', async () => {
     expect(await resolve('/qits/nonsense/qits-docs')).toBe(Scopes);
     expect(await resolve('/nothing-here')).toBe(Scopes);
   });
