@@ -1,4 +1,4 @@
-# qits-spa-docs
+# qits-docs-frontend
 
 The client for **qits-docs** — the platform's reading room. Two pages over one store, each
 addressable twice:
@@ -8,9 +8,9 @@ addressable twice:
     /<slug>/<category>/<repo>/                 one repository's documentation
     /<slug>/<category>/<repo>/read/<site>/…    the same bundle, in that scope
 
-Angular 21.2, standalone, no SSR, `baseHref: /`. Served by Quinoa from qits-docs at
+Angular 21.2, standalone, no SSR, `baseHref: /`. Served by Quinoa from qits-docs-service at
 `src/main/webui`, at the **root of the docs host** (`docs.<env>.<domain>`); this repository is a
-submodule there and in the superproject at `frontends/qits-spa-docs`.
+submodule there and in the superproject at `components/qits-docs/qits-docs-frontend`.
 
     npm ci && npm run build      # needs the platform's npm registry — see .npmrc
 
