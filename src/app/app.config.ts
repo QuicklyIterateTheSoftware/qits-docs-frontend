@@ -5,7 +5,12 @@ import {
 } from '@angular/core';
 import { provideHttpClient, withFetch } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { provideQitsNavigation, provideQitsProjects, provideQitsScope } from '@qits/ui-components';
+import {
+  provideQitsBuilds,
+  provideQitsNavigation,
+  provideQitsProjects,
+  provideQitsScope,
+} from '@qits/ui-components';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -39,5 +44,11 @@ export const appConfig: ApplicationConfig = {
     // published site is one repository's — so this app routes /<slug>/<category>/<repo>/… as well
     // as its own unscoped paths, and every page reads the scope rather than the route params.
     provideQitsScope('repository'),
+    // The pending-builds bolt beside the picker: a popover of what qits-ci is building right now,
+    // from GET /ci/api/runs/active. Same-origin like the two reads above — the edge routes /ci on
+    // every host — so it needs the HttpClient too and names no origin of its own. Providing it is
+    // what puts the bolt there, exactly as no project source means no picker. Closed it asks
+    // nothing at all, and it polls only for as long as a reader keeps the panel open.
+    provideQitsBuilds(),
   ],
 };
