@@ -5,13 +5,7 @@ import { filter, map, of, switchMap } from 'rxjs';
 import { QITS_SCOPE, scopeCommands, scopePath } from '@qits/ui-components';
 import { categoriesOf, storyPages } from './bundle-files';
 import { CatalogService, type Catalog, type DocEntry } from './catalog';
-import {
-  APIDOCS_SCOPE,
-  DOC_SECTIONS,
-  USERFLOWS_SCOPE,
-  kindOf,
-  siteBelongsToRepository,
-} from './doc-kind';
+import { DOC_SECTIONS, kindOf, siteBelongsToRepository } from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
 import { defaultVersion } from './reader';
 
@@ -23,31 +17,38 @@ export interface NavSection {
 }
 
 /**
- * The catalog folded into the three sub-navigation entries — narrowed to one repository's own
+ * The catalog folded into the four sub-navigation entries — narrowed to one repository's own
  * sites when one is given, because under a repository scope another repository's docs are noise
- * with a misleading address. Sites keep the catalog's order; the two special scopes' sites drop
- * their scope prefix from display (repeating `@userflows` under an entry that says Userflows would
- * be saying it twice), and storybook keeps full names since its scopes vary.
+ * with a misleading address. Sites keep the catalog's order; the special scopes' sites drop their
+ * scope prefix from display (repeating `@userflows` under an entry that says Userflows would be
+ * saying it twice), and storybook keeps full names since its scopes vary.
+ *
+ * <p>Which scope belongs to which entry is the SECTION'S own declaration now (`DOC_SECTIONS[].scope`)
+ * rather than a ladder written out here: a section with a scope takes that scope's docs, and the
+ * one scopeless section — storybook — takes every scope no section claimed. The claimed set is
+ * derived from the sections themselves for one reason, and it is not brevity: this fold used to
+ * carry the exclusion as a literal list (`!== APIDOCS_SCOPE && !== USERFLOWS_SCOPE`), so a new
+ * kind that was added everywhere else and forgotten HERE would still compile and still render —
+ * its sites showing up under Storybook, framed as if they had an `index.html`. A derived set
+ * cannot be forgotten; the guides entry proved it by needing no edit to this line at all.
  */
 export function navSections(catalog: Catalog | undefined, repository?: string): NavSection[] {
   const scopes = catalog?.scopes ?? [];
+  const claimed = DOC_SECTIONS.map((section) => section.scope).filter(
+    (scope): scope is string => !!scope,
+  );
   return DOC_SECTIONS.map((section) => ({
     label: section.label,
     route: section.route,
-    docs: (section.kind === 'storybook'
-      ? scopes
-          .filter((group) => group.scope !== APIDOCS_SCOPE && group.scope !== USERFLOWS_SCOPE)
-          .flatMap((group) => group.docs)
-      : (scopes.find(
-          (group) =>
-            group.scope === (section.kind === 'apidocs' ? APIDOCS_SCOPE : USERFLOWS_SCOPE),
-        )?.docs ?? [])
+    docs: (section.scope
+      ? (scopes.find((group) => group.scope === section.scope)?.docs ?? [])
+      : scopes.filter((group) => !claimed.includes(group.scope)).flatMap((group) => group.docs)
     ).filter((entry) => !repository || siteBelongsToRepository(entry.shortName, repository)),
   }));
 }
 
 /**
- * The docs sub-menu under this application's entry in the platform navigation: the three section
+ * The docs sub-menu under this application's entry in the platform navigation: the four section
  * entries, and — only under the OPEN section — its next level as child rows. That is the platform
  * sidebar's own shape one level down: `repositoryRows()` shows a repository's detail entries only
  * for the repository in scope, and a child row is the same 2px-rail indent idiom.
@@ -55,7 +56,7 @@ export function navSections(catalog: Catalog | undefined, repository?: string): 
  * <p><b>Under a repository scope there is no site layer, and the tree is always open.</b> The
  * scope IS the site selection — sections hold only that repository's docs, a section link opens
  * its one site directly, and a userflows section's children are the categories themselves,
- * visible without clicking into the section first. All three sections stay listed even when the
+ * visible without clicking into the section first. Every section stays listed even when the
  * repository has published nothing of that kind: the row is the map, and its page says what is
  * missing and how it gets here. Unscoped, the menu keeps all three levels — section, site,
  * category — expanding only the open section, because there the catalog can be long.
@@ -230,17 +231,16 @@ export class DocsNavTree {
   protected readonly catalog = toSignal(this.catalogService.catalog());
 
   /**
-   * All three sections always, scoped or not — an empty one is a place to explain what is
-   * missing, and hiding it would make the menu's shape depend on what happens to be published.
+   * Every section always, scoped or not — an empty one is a place to explain what is missing, and
+   * hiding it would make the menu's shape depend on what happens to be published.
    */
   protected readonly sections = computed(() =>
     navSections(this.catalog(), this.scopedRepository()),
   );
 
   /** The userflows section's route — the one section whose scoped children are categories. */
-  protected readonly userflowsRoute = DOC_SECTIONS.find(
-    (section) => section.kind === 'userflows',
-  )?.route;
+  protected readonly userflowsRoute = DOC_SECTIONS.find((section) => section.kind === 'userflows')
+    ?.route;
 
   /**
    * The URL, as a signal — Angular has no signal-valued `Router.url`, and this menu lives in the
@@ -276,9 +276,7 @@ export class DocsNavTree {
     return segments[0] === 'read' ? parseReadPath(segments).site || undefined : undefined;
   });
 
-  private readonly readVersion = computed(
-    () => parseReadPath(this.insideSegments()).version,
-  );
+  private readonly readVersion = computed(() => parseReadPath(this.insideSegments()).version);
 
   /**
    * The userflows site whose categories this menu shows: the one being read, or — under a
@@ -293,8 +291,7 @@ export class DocsNavTree {
       return undefined;
     }
     // Scoped, the categories stay drawn whatever page is on screen — the repository's own site.
-    return this.sections().find((section) => section.route === this.userflowsRoute)?.docs[0]
-      ?.name;
+    return this.sections().find((section) => section.route === this.userflowsRoute)?.docs[0]?.name;
   });
 
   /** The category site's version list — what resolves the bundle whose categories show. */

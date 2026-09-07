@@ -5,7 +5,7 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { switchMap } from 'rxjs';
 import { QITS_SCOPE, scopeCommands } from '@qits/ui-components';
 import { CatalogService, type DocVersion } from './catalog';
-import { branchOf, distinctBranches, kindOf } from './doc-kind';
+import { branchOf, distinctBranches, kindOf, rendererFor } from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
 import { MarkdownBundle } from './markdown-bundle';
 import { SwaggerBundle } from './swagger-bundle';
@@ -34,9 +34,7 @@ export function versionsOnBranch(
  * newest overall — "a link without a version opens the latest main".
  */
 export function defaultVersion(versions: readonly DocVersion[]): string | undefined {
-  return (
-    versions.find((v) => branchOf(v) === 'main')?.version ?? versions[0]?.version
-  );
+  return versions.find((v) => branchOf(v) === 'main')?.version ?? versions[0]?.version;
 }
 
 /**
@@ -48,9 +46,13 @@ export function defaultVersion(versions: readonly DocVersion[]): string | undefi
  * and a pick NAVIGATES — the version is a place, so it goes in the path and the sidebar never
  * holds a picker. A URL without a version reads the newest of {@code main}.
  *
- * <p>Three kinds, three bodies — see doc-kind.ts: Storybook stays a whole-application
- * {@code <iframe>}; userflows render their markdown in place; apidocs hand their OpenAPI document
- * to swagger-ui.
+ * <p>Four kinds, three bodies — see doc-kind.ts: Storybook stays a whole-application
+ * {@code <iframe>}; apidocs hand their OpenAPI document to swagger-ui; userflows AND guides both
+ * render their markdown in place, because a recorded user story and a hand-written platform
+ * contract are the same thing to a renderer — a tree of {@code .md} under a served bundle. So the
+ * body below switches on the RENDERER ({@code rendererFor}), not on the kind: one arm per way of
+ * drawing, which is what the template actually distinguishes, and a fifth markdown kind adds no
+ * arm at all.
  */
 @Component({
   selector: 'qits-docs-reader',
@@ -61,6 +63,11 @@ export function defaultVersion(versions: readonly DocVersion[]): string | undefi
       <h1>{{ site() }}</h1>
       @if (versions().length) {
         <div class="rev-actions">
+          <!-- A deliberate KIND test, not a renderer test: guides share the markdown renderer with
+               userflows and still must not get this select. A branch picker fits per-commit
+               userflow bundles, where every branch publishes and picking one is how a reader finds
+               the run they mean; guides are published per release off main, so a branch row would
+               offer a choice with one entry and imply a history that is not there. -->
           @if (kind() === 'userflows' && branches().length) {
             <label class="rev">
               <span class="rev-label">Branch</span>
@@ -88,13 +95,13 @@ export function defaultVersion(versions: readonly DocVersion[]): string | undefi
     </header>
 
     <div class="body">
-      @switch (kind()) {
-        @case ('userflows') {
+      @switch (renderer()) {
+        @case ('markdown') {
           @if (bundleVersion(); as version) {
             <docs-markdown-bundle [site]="site()" [version]="version" />
           }
         }
-        @case ('apidocs') {
+        @case ('swagger') {
           @if (bundleVersion(); as version) {
             <docs-swagger-bundle [site]="site()" [version]="version" />
           }
@@ -186,14 +193,19 @@ export class Reader {
    */
   private readonly url = toSignal(this.route.url, { initialValue: this.route.snapshot.url });
 
-  private readonly read = computed(() =>
-    parseReadPath(this.url().map((segment) => segment.path)),
-  );
+  private readonly read = computed(() => parseReadPath(this.url().map((segment) => segment.path)));
 
   protected readonly site = computed(() => this.read().site);
   private readonly urlVersion = computed(() => this.read().version);
 
   protected readonly kind = computed(() => kindOf(this.site()));
+
+  /**
+   * What draws the body. The kind is still read above — the controls above the body ask about the
+   * kind, because a control is about what the document IS — but the body itself asks only how to
+   * draw, so the two questions get two signals instead of one switch doing both jobs.
+   */
+  protected readonly renderer = computed(() => rendererFor(this.kind()));
 
   private readonly loaded = toSignal(
     toObservable(this.site).pipe(switchMap((site) => this.catalogService.versions(site))),
@@ -224,6 +236,13 @@ export class Reader {
    * The version select's options: the current branch's versions (userflows) or all of them, with
    * the on-screen version prepended when the narrowing lost it — the platform's rule that a
    * selector never silently misreports what is on screen.
+   *
+   * <p>The `=== 'userflows'` below is the same deliberate KIND test as the branch select's, and it
+   * stays a kind test even though guides now share the markdown renderer: this narrowing exists
+   * because userflow versions are per-commit and only a branch makes that list navigable. Guides
+   * carry release versions, where the full list IS the useful list, so widening this to
+   * `rendererFor(...) === 'markdown'` would hide every guide version off the current branch behind
+   * a picker that had no reason to be there.
    */
   protected readonly versionOptions = computed(() => {
     const narrowed =

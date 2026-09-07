@@ -17,16 +17,41 @@ describe('sub-navigation sections and version selection', () => {
     ...(branch ? { metadata: { 'git.branch.name': branch } } : {}),
   });
 
-  it('folds the catalog into the three entries, special scopes flattened', () => {
+  it('folds the catalog into the four entries, special scopes flattened', () => {
     const catalog: Catalog = {
       scopes: [
         {
           scope: '@qits',
-          docs: [{ name: '@qits/ui-components', shortName: 'ui-components', versionCount: 2, latestVersion: '1' }],
+          docs: [
+            {
+              name: '@qits/ui-components',
+              shortName: 'ui-components',
+              versionCount: 2,
+              latestVersion: '1',
+            },
+          ],
         },
         {
           scope: '@userflows',
-          docs: [{ name: '@userflows/qits-githost', shortName: 'qits-githost', versionCount: 1, latestVersion: 'a' }],
+          docs: [
+            {
+              name: '@userflows/qits-githost',
+              shortName: 'qits-githost',
+              versionCount: 1,
+              latestVersion: 'a',
+            },
+          ],
+        },
+        {
+          scope: '@guides',
+          docs: [
+            {
+              name: '@guides/qits-platform',
+              shortName: 'qits-platform',
+              versionCount: 1,
+              latestVersion: '2026.901.1',
+            },
+          ],
         },
       ],
     };
@@ -35,10 +60,17 @@ describe('sub-navigation sections and version selection', () => {
       'storybook',
       'apidocs',
       'userflows',
+      'guides',
     ]);
     expect(sections[0].docs.map((entry) => entry.name)).toEqual(['@qits/ui-components']);
     expect(sections[1].docs).toEqual([]);
     expect(sections[2].docs.map((entry) => entry.shortName)).toEqual(['qits-githost']);
+    expect(sections[3].docs.map((entry) => entry.shortName)).toEqual(['qits-platform']);
+    // The regression this fold's derived exclusion exists to prevent: a claimed scope that the
+    // storybook branch does not know about does not error, it LEAKS — the site would list under
+    // Storybook and the reader would frame a bundle that has no index.html to frame. Storybook
+    // holds the unclaimed scopes and nothing else.
+    expect(sections[0].docs.map((entry) => entry.name)).not.toContain('@guides/qits-platform');
   });
 
   it('narrows the fold to one repository`s own sites under a scope', () => {
@@ -47,8 +79,18 @@ describe('sub-navigation sections and version selection', () => {
         {
           scope: '@userflows',
           docs: [
-            { name: '@userflows/qits-githost', shortName: 'qits-githost', versionCount: 1, latestVersion: 'a' },
-            { name: '@userflows/qits-ci', shortName: 'qits-ci', versionCount: 1, latestVersion: 'b' },
+            {
+              name: '@userflows/qits-githost',
+              shortName: 'qits-githost',
+              versionCount: 1,
+              latestVersion: 'a',
+            },
+            {
+              name: '@userflows/qits-ci',
+              shortName: 'qits-ci',
+              versionCount: 1,
+              latestVersion: 'b',
+            },
           ],
         },
       ],

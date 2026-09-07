@@ -50,7 +50,7 @@ import { readCommands } from './doc-url';
           <p class="empty">No docs published for {{ repo }} yet.</p>
         }
       } @else {
-        <!-- The unscoped landing: the three sections as cards, each an address of its own. The
+        <!-- The unscoped landing: every section as a card, each an address of its own. The
              per-site browsing stays the sidebar's; what this page owns is the map. -->
         <div class="sections">
           @for (section of sections(); track section.route) {
@@ -182,7 +182,7 @@ export class Scopes {
     return readCommands(site, undefined, scopeCommands(this.scopeSource?.scope()));
   }
 
-  /** The three section cards, each with how many sites it currently holds. */
+  /** One card per DOC_SECTIONS entry, each with how many sites it currently holds. */
   protected readonly sections = computed(() =>
     DOC_SECTIONS.map((section) => ({
       ...section,

@@ -8,10 +8,10 @@ import { DOC_SECTIONS, kindOf, siteBelongsToRepository, type DocKind } from './d
 import { readCommands } from './doc-url';
 
 /**
- * One documentation kind's page — what `/storybook`, `/apidocs` and `/userflows` render: the
- * section's description and every site of that kind, each a link into the reader. The kind
- * arrives as route data, read off the route directly — `withComponentInputBinding` is deliberately
- * off in this app (see app.config.ts) — so the three routes share one component.
+ * One documentation kind's page — what `/storybook`, `/apidocs`, `/userflows` and `/guides`
+ * render: the section's description and every site of that kind, each a link into the reader. The
+ * kind arrives as route data, read off the route directly — `withComponentInputBinding` is
+ * deliberately off in this app (see app.config.ts) — so every section route shares one component.
  *
  * <p>This deliberately duplicates a slice of what the sidebar tree shows — the exception to the
  * "the sidebar is the catalog" rule that retired the old scope page — because a section is now an
@@ -34,8 +34,9 @@ import { readCommands } from './doc-url';
             <li>
               <a [routerLink]="commands(entry.name)">{{ entry.name }}</a>
               <span class="meta">
-                {{ entry.latestVersion }} · {{ entry.versionCount }}
-                version{{ entry.versionCount === 1 ? '' : 's' }}
+                {{ entry.latestVersion }} · {{ entry.versionCount }} version{{
+                  entry.versionCount === 1 ? '' : 's'
+                }}
               </span>
             </li>
           }
@@ -98,11 +99,10 @@ export class Section {
   private readonly scopeSource = inject(QITS_SCOPE, { optional: true });
   private readonly route = inject(ActivatedRoute);
 
-  /** The route's declared kind — the same component serves all three section routes. */
-  protected readonly kind = toSignal(
-    this.route.data.pipe(map((data) => data['kind'] as DocKind)),
-    { initialValue: this.route.snapshot.data['kind'] as DocKind },
-  );
+  /** The route's declared kind — the same component serves every section route. */
+  protected readonly kind = toSignal(this.route.data.pipe(map((data) => data['kind'] as DocKind)), {
+    initialValue: this.route.snapshot.data['kind'] as DocKind,
+  });
 
   protected readonly section = computed(
     () => DOC_SECTIONS.find((section) => section.kind === this.kind()) ?? DOC_SECTIONS[0],
@@ -122,12 +122,20 @@ export class Section {
       );
   });
 
+  /**
+   * What an empty section says. Each hint names the step that puts something here, because "no
+   * sites" on its own is a dead end: the reader who lands on an empty section is usually the
+   * person who could publish into it, and the page's whole reason for existing over a hidden row
+   * is that it can say how.
+   */
   protected emptyHint(): string {
     switch (this.kind()) {
       case 'userflows':
         return 'No userflow reports yet — a repository publishes them per commit once it carries a ci-event-userflows pipeline.';
       case 'apidocs':
         return 'No API documents yet — a release pipeline publishes its openapi.yml under the @apidocs scope.';
+      case 'guides':
+        return 'No guides yet — a repository commits its markdown under docs/guides and its release pipeline tars that directory to the @guides scope.';
       default:
         return 'Nothing is published here yet.';
     }

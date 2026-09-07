@@ -22,9 +22,12 @@ import { Section } from './section';
  * There is no scope route any more. Browsing scope by scope is the sidebar's job now, and a page
  * built from the same `catalog()` was a second implementation of the same list.
  *
- * The three SECTION routes (`storybook`, `apidocs`, `userflows`) are addresses on purpose — the
- * landing page's cards and the sidebar's section headers link to them, and a section URL is one a
- * person can hand someone. Derived from DOC_SECTIONS so a fourth kind arrives as one entry there.
+ * The four SECTION routes (`storybook`, `apidocs`, `userflows`, `guides`) are addresses on purpose
+ * — the landing page's cards and the sidebar's section headers link to them, and a section URL is
+ * one a person can hand someone. Derived from DOC_SECTIONS so a fourth kind arrives as one entry
+ * there, which is exactly how `guides` did arrive: this file was not edited for it beyond this
+ * sentence, and `OWN_SEGMENTS` below picked the new segment up on its own, so `/guides` is a page
+ * of this app's own and can never be read as a project slug or a component group.
  */
 const OWN: Routes = [
   { path: '', component: Scopes },

@@ -15,7 +15,13 @@ import { ActivatedRoute } from '@angular/router';
 import { Marked } from 'marked';
 import { baseUrl } from 'marked-base-url';
 import DOMPurify from 'dompurify';
-import { categoriesOf, pageBaseUrl, pagesInCategory, storyPages, type StoryPage } from './bundle-files';
+import {
+  categoriesOf,
+  pageBaseUrl,
+  pagesInCategory,
+  storyPages,
+  type StoryPage,
+} from './bundle-files';
 import { CatalogService } from './catalog';
 
 /** One story, rendered: its jump anchor, its display title, and its sanitized-then-trusted body. */
@@ -31,11 +37,27 @@ export function storyTitle(markdown: string, fallback: string): string {
 }
 
 /**
- * A markdown bundle, read — the userflows kind: no `index.html` to frame, so the client renders
- * the markdown itself with standard libraries (marked for the parsing, marked-base-url so each
- * page's relative screenshots and video links resolve into the served bundle, DOMPurify over the
- * output because a bundle is publishable by anything on qits-net, and mermaid — lazy-loaded, only
- * when a page carries a diagram — for the sequence diagrams the userflows framework emits).
+ * A markdown bundle, read — the body of BOTH markdown kinds, userflows and guides: no `index.html`
+ * to frame, so the client renders the markdown itself with standard libraries (marked for the
+ * parsing, marked-base-url so each page's relative screenshots and video links resolve into the
+ * served bundle, DOMPurify over the output because a bundle is publishable by anything on
+ * qits-net, and mermaid — lazy-loaded, only when a page carries a diagram — for the sequence
+ * diagrams the userflows framework emits).
+ *
+ * <p><b>What this component assumes of a bundle is small on purpose, and it is all this comment
+ * can promise:</b> a tree of `.md` files under the served version directory, either categorized
+ * (`<category>/<story>/user-story.md`, what the userflows framework emits) or flat (`<name>.md`,
+ * what a repository's `docs/guides` tars up). `bundle-files.ts` reads both shapes into the same
+ * `StoryPage` list, and everything below is written against that list rather than against either
+ * layout.
+ *
+ * <p>That is why there is no guides-specific branch anywhere in here, and none should be added. A
+ * flat bundle has no categories, so `categoriesOf` returns nothing, the `?category=` narrowing
+ * selects the empty category — which is every page of a flat bundle — and the category legend the
+ * sidebar draws simply has no rows to draw. The guides behaviour is the general behaviour with one
+ * of its dimensions empty, not a second mode; an `if (kind === 'guides')` here would be asserting a
+ * difference the file format does not have, and would then have to be maintained against a
+ * userflows bundle that happens to be flat, which also exists (the pre-category ones).
  *
  * <p>The selected category's stories all render on ONE page, with a legend of jump links at the
  * top instead of a selector — a reader scans the list, clicks, and lands on the story, and the

@@ -37,12 +37,12 @@ describe('app routes', () => {
     expect(await resolve('/qits/services/qits-docs')).toBe(Scopes);
   });
 
-  it('serves the three section pages, unscoped and under a repository', async () => {
+  it('serves every section page, unscoped and under a repository', async () => {
     const router = TestBed.inject(Router);
-    for (const section of ['storybook', 'apidocs', 'userflows']) {
+    for (const section of ['storybook', 'apidocs', 'userflows', 'guides']) {
       expect(await resolve(`/${section}`)).toBe(Section);
       expect(await resolve(`/qits/services/qits-docs/${section}`)).toBe(Section);
-      // The kind rides the route's data — the one component serves all three.
+      // The kind rides the route's data — the one component serves all of them.
       let node = router.routerState.snapshot.root;
       while (node.firstChild) node = node.firstChild;
       expect(node.data['kind']).toBe(section === 'apidocs' ? 'apidocs' : section);
