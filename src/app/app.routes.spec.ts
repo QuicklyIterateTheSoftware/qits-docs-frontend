@@ -39,7 +39,7 @@ describe('app routes', () => {
 
   it('serves every section page, unscoped and under a repository', async () => {
     const router = TestBed.inject(Router);
-    for (const section of ['storybook', 'apidocs', 'userflows', 'guides']) {
+    for (const section of ['storybook', 'apidocs', 'userflows', 'guides', 'contracts']) {
       expect(await resolve(`/${section}`)).toBe(Section);
       expect(await resolve(`/qits/services/qits-docs/${section}`)).toBe(Section);
       // The kind rides the route's data — the one component serves all of them.

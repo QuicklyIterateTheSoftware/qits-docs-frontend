@@ -5,11 +5,13 @@ describe('doc kinds and the sub-navigation', () => {
     expect(kindOf('@userflows/qits-githost')).toBe('userflows');
     expect(kindOf('@apidocs/qits-ci')).toBe('apidocs');
     expect(kindOf('@guides/qits-platform')).toBe('guides');
+    expect(kindOf('@contracts/qits-projects')).toBe('contracts');
     expect(kindOf('@qits/ui-components')).toBe('storybook');
     expect(kindOf('plain-site')).toBe('storybook');
     // The scope itself, without a site under it, is nobody's special kind.
     expect(kindOf('@userflows')).toBe('storybook');
     expect(kindOf('@guides')).toBe('storybook');
+    expect(kindOf('@contracts')).toBe('storybook');
   });
 
   /**
@@ -43,5 +45,6 @@ describe('doc kinds and the sub-navigation', () => {
     expect(rendererFor('guides')).toBe('markdown');
     expect(rendererFor('apidocs')).toBe('swagger');
     expect(rendererFor('storybook')).toBe('frame');
+    expect(rendererFor('contracts')).toBe('golden-masters');
   });
 });

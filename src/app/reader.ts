@@ -7,6 +7,7 @@ import { QITS_SCOPE, scopeCommands } from '@qits/ui-components';
 import { CatalogService, type DocVersion } from './catalog';
 import { branchOf, distinctBranches, kindOf, rendererFor } from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
+import { GoldenMastersBundle } from './golden-masters-bundle';
 import { MarkdownBundle } from './markdown-bundle';
 import { SwaggerBundle } from './swagger-bundle';
 
@@ -46,18 +47,18 @@ export function defaultVersion(versions: readonly DocVersion[]): string | undefi
  * and a pick NAVIGATES — the version is a place, so it goes in the path and the sidebar never
  * holds a picker. A URL without a version reads the newest of {@code main}.
  *
- * <p>Four kinds, three bodies — see doc-kind.ts: Storybook stays a whole-application
+ * <p>Five kinds, four bodies — see doc-kind.ts: Storybook stays a whole-application
  * {@code <iframe>}; apidocs hand their OpenAPI document to swagger-ui; userflows AND guides both
  * render their markdown in place, because a recorded user story and a hand-written platform
- * contract are the same thing to a renderer — a tree of {@code .md} under a served bundle. So the
- * body below switches on the RENDERER ({@code rendererFor}), not on the kind: one arm per way of
- * drawing, which is what the template actually distinguishes, and a fifth markdown kind adds no
- * arm at all.
+ * contract are the same thing to a renderer — a tree of {@code .md} under a served bundle; contracts
+ * read their {@code golden-masters/index.json} straight into its own renderer. So the body below
+ * switches on the RENDERER ({@code rendererFor}), not on the kind: one arm per way of drawing, which
+ * is what the template actually distinguishes, and a markdown-sharing kind adds no arm at all.
  */
 @Component({
   selector: 'qits-docs-reader',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MarkdownBundle, SwaggerBundle],
+  imports: [MarkdownBundle, SwaggerBundle, GoldenMastersBundle],
   template: `
     <header class="head">
       <h1>{{ site() }}</h1>
@@ -104,6 +105,11 @@ export function defaultVersion(versions: readonly DocVersion[]): string | undefi
         @case ('swagger') {
           @if (bundleVersion(); as version) {
             <docs-swagger-bundle [site]="site()" [version]="version" />
+          }
+        }
+        @case ('golden-masters') {
+          @if (bundleVersion(); as version) {
+            <docs-golden-masters-bundle [site]="site()" [version]="version" />
           }
         }
         @default {

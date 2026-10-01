@@ -17,7 +17,7 @@ describe('sub-navigation sections and version selection', () => {
     ...(branch ? { metadata: { 'git.branch.name': branch } } : {}),
   });
 
-  it('folds the catalog into the four entries, special scopes flattened', () => {
+  it('folds the catalog into the five entries, special scopes flattened', () => {
     const catalog: Catalog = {
       scopes: [
         {
@@ -61,11 +61,13 @@ describe('sub-navigation sections and version selection', () => {
       'apidocs',
       'userflows',
       'guides',
+      'contracts',
     ]);
     expect(sections[0].docs.map((entry) => entry.name)).toEqual(['@qits/ui-components']);
     expect(sections[1].docs).toEqual([]);
     expect(sections[2].docs.map((entry) => entry.shortName)).toEqual(['qits-githost']);
     expect(sections[3].docs.map((entry) => entry.shortName)).toEqual(['qits-platform']);
+    expect(sections[4].docs).toEqual([]);
     // The regression this fold's derived exclusion exists to prevent: a claimed scope that the
     // storybook branch does not know about does not error, it LEAKS — the site would list under
     // Storybook and the reader would frame a bundle that has no index.html to frame. Storybook

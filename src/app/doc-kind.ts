@@ -11,6 +11,9 @@
  *  - `guides`    — platform contracts and operating notes: hand-written markdown published from a
  *                  repository's `docs/guides`, under the `@guides` scope, rendered by the SAME
  *                  markdown renderer as userflows.
+ *  - `contracts` — recorded pact-style golden masters: a `golden-masters/index.json` naming the
+ *                  provider's states and, per state, the operations recorded against it, under the
+ *                  `@contracts` scope, rendered by its own renderer straight from the index.
  *
  * <p>That last line is the point worth saying out loud: a fourth kind arrived and needed no fourth
  * renderer. What separates userflows from guides is who writes the markdown (a pipeline recording
@@ -21,11 +24,12 @@
  * copies of marked/DOMPurify/mermaid wiring drifting apart over a distinction neither of them
  * draws; `rendererFor` below says the sharing once instead.
  */
-export type DocKind = 'storybook' | 'apidocs' | 'userflows' | 'guides';
+export type DocKind = 'storybook' | 'apidocs' | 'userflows' | 'guides' | 'contracts';
 
 export const USERFLOWS_SCOPE = '@userflows';
 export const APIDOCS_SCOPE = '@apidocs';
 export const GUIDES_SCOPE = '@guides';
+export const CONTRACTS_SCOPE = '@contracts';
 
 /** The branch a version was published from, when its publisher recorded one. */
 export function branchOf(version: {
@@ -118,6 +122,13 @@ export const DOC_SECTIONS: readonly {
     scope: GUIDES_SCOPE,
     description: 'Platform contracts and operating notes.',
   },
+  {
+    kind: 'contracts',
+    label: 'Contracts',
+    route: 'contracts',
+    scope: CONTRACTS_SCOPE,
+    description: 'Recorded provider states and the operations run against each one.',
+  },
 ];
 
 /**
@@ -149,7 +160,7 @@ export function kindOf(site: string): DocKind {
  * nothing to keep the arms alike. Saying it once, here, means adding a markdown kind is a line in
  * this function and nothing in any template.
  */
-export type DocRenderer = 'frame' | 'markdown' | 'swagger';
+export type DocRenderer = 'frame' | 'markdown' | 'swagger' | 'golden-masters';
 
 export function rendererFor(kind: DocKind): DocRenderer {
   switch (kind) {
@@ -158,6 +169,8 @@ export function rendererFor(kind: DocKind): DocRenderer {
       return 'markdown';
     case 'apidocs':
       return 'swagger';
+    case 'contracts':
+      return 'golden-masters';
     default:
       return 'frame';
   }
