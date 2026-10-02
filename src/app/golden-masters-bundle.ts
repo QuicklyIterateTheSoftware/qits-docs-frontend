@@ -50,6 +50,53 @@ export interface GoldenMastersIndex {
 /** The only format this renderer reads; anything else falls back to the plain file list. */
 export const GOLDEN_MASTERS_FORMAT_VERSION = 1;
 
+/** One package `contract-docs` published alongside the bundle at this version. */
+export interface ContractsPackage {
+  readonly ecosystem: 'maven' | 'npm';
+  readonly coordinate: string;
+  readonly version: string;
+  readonly published: boolean;
+}
+
+/**
+ * `contracts.json`, at the bundle's root — the "how to depend on this" manifest `contract-docs`
+ * writes beside `golden-masters/index.json`. Fetched separately from the index, and read
+ * independently of it: a bundle can carry one, the other, both or neither.
+ */
+export interface ContractsManifest {
+  readonly formatVersion: number;
+  readonly application: string;
+  readonly version: string;
+  readonly packages: readonly ContractsPackage[];
+}
+
+/** The only format this renderer reads; any other value (or a missing file) renders nothing. */
+export const CONTRACTS_MANIFEST_FORMAT_VERSION = 1;
+
+/** `<dependency>groupId:artifactId</dependency>`, split at the first `:` — never the last. */
+export function splitMavenCoordinate(coordinate: string): { groupId: string; artifactId: string } {
+  const at = coordinate.indexOf(':');
+  return at === -1
+    ? { groupId: coordinate, artifactId: '' }
+    : { groupId: coordinate.slice(0, at), artifactId: coordinate.slice(at + 1) };
+}
+
+/** The copyable block for one declared package — a maven `<dependency>` or an npm install line. */
+export function dependencySnippet(pkg: ContractsPackage): string {
+  if (pkg.ecosystem === 'npm') {
+    return `npm install --save-dev ${pkg.coordinate}@${pkg.version}`;
+  }
+  const { groupId, artifactId } = splitMavenCoordinate(pkg.coordinate);
+  return (
+    `<dependency>\n` +
+    `  <groupId>${groupId}</groupId>\n` +
+    `  <artifactId>${artifactId}</artifactId>\n` +
+    `  <version>${pkg.version}</version>\n` +
+    `  <scope>test</scope>\n` +
+    `</dependency>`
+  );
+}
+
 /**
  * Frozen fields, read compactly: which paths were pinned as ids or instants, and how a list was
  * matched — "" when a recording carries none, which the template treats as nothing to show.
@@ -109,11 +156,38 @@ interface RecordedContent {
  *
  * <p>A recorded file's own JSON is fetched lazily, on first expand of its `<details>` — a state can
  * carry many operations, and a reader who came to look at one of them should not pay for the rest.
+ *
+ * <p>A second, independent file sits beside the index: `contracts.json`, the manifest
+ * `contract-docs` writes naming which maven and npm packages this version of the application
+ * declared, and whether each actually published at this version or is sitting unchanged on an
+ * older one. Fetched right after the index — in the same request chain, so the two never race —
+ * but read on its own terms: a bundle published before this epic, or one whose manifest this
+ * reader does not recognise, simply renders no "how to depend on this" section, exactly as a
+ * bundle with no manifest at all. The states below render exactly as they always have either way.
  */
 @Component({
   selector: 'docs-golden-masters-bundle',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (contracts(); as manifest) {
+      <section class="contracts">
+        <h2>How to depend on this</h2>
+        @for (pkg of manifest.packages; track pkg.coordinate) {
+          <div class="dependency">
+            <div class="dependency-head">
+              <span class="ecosystem">{{ pkg.ecosystem }}</span>
+              @if (!pkg.published) {
+                <span class="unchanged">unchanged since {{ pkg.version }}</span>
+              }
+            </div>
+            <pre class="snippet">{{ dependencySnippet(pkg) }}</pre>
+            <button type="button" class="copy" (click)="copySnippet(pkg)">
+              {{ copiedCoordinate() === pkg.coordinate ? 'Copied!' : 'Copy' }}
+            </button>
+          </div>
+        }
+      </section>
+    }
     @if (indexError()) {
       <p class="hint">No golden-masters index found for this bundle.</p>
       <ul class="files">
@@ -275,6 +349,53 @@ interface RecordedContent {
       margin: 24px;
       color: #6b7280;
     }
+    .contracts {
+      max-width: 900px;
+      margin: 0 auto 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .contracts h2 {
+      font-size: 16px;
+      margin: 0 0 6px;
+    }
+    .dependency {
+      margin: 6px 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+    }
+    .dependency-head {
+      display: flex;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .ecosystem {
+      font-weight: 600;
+      color: #4338ca;
+    }
+    .unchanged {
+      color: #6b7280;
+    }
+    .snippet {
+      margin: 0 0 6px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    .copy {
+      font-size: 12px;
+      padding: 4px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
   `,
 })
 export class GoldenMastersBundle {
@@ -295,19 +416,47 @@ export class GoldenMastersBundle {
 
   protected readonly files = computed(() => this.detail()?.files ?? []);
 
-  private readonly indexResult = toSignal(
+  private readonly bundleResult = toSignal(
     toObservable(this.at).pipe(
       switchMap(({ site, version }) =>
         this.http.get<GoldenMastersIndex>(`/docs/${site}/-/${version}/golden-masters/index.json`).pipe(
           map((index) => ({ index, error: false }) as const),
           catchError(() => of({ index: undefined, error: true } as const)),
+          // The manifest is fetched right after the index settles, success or not — the two files
+          // are unrelated, so one's absence must never block the other's request from going out.
+          switchMap((indexOutcome) =>
+            this.http.get<ContractsManifest>(`/docs/${site}/-/${version}/contracts.json`).pipe(
+              map((manifest) => ({ ...indexOutcome, manifest }) as const),
+              catchError(() => of({ ...indexOutcome, manifest: undefined } as const)),
+            ),
+          ),
         ),
       ),
     ),
   );
 
-  protected readonly index = computed(() => this.indexResult()?.index);
-  protected readonly indexError = computed(() => this.indexResult()?.error ?? false);
+  protected readonly index = computed(() => this.bundleResult()?.index);
+  protected readonly indexError = computed(() => this.bundleResult()?.error ?? false);
+
+  /** `undefined` for a missing `contracts.json` or one this reader's formatVersion rejects. */
+  protected readonly contracts = computed(() => {
+    const manifest = this.bundleResult()?.manifest;
+    return manifest?.formatVersion === CONTRACTS_MANIFEST_FORMAT_VERSION ? manifest : undefined;
+  });
+
+  protected readonly dependencySnippet = dependencySnippet;
+
+  protected readonly copiedCoordinate = signal<string | null>(null);
+  private copiedTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  protected async copySnippet(pkg: ContractsPackage): Promise<void> {
+    await navigator.clipboard.writeText(dependencySnippet(pkg));
+    this.copiedCoordinate.set(pkg.coordinate);
+    if (this.copiedTimeout !== null) {
+      clearTimeout(this.copiedTimeout);
+    }
+    this.copiedTimeout = setTimeout(() => this.copiedCoordinate.set(null), 2000);
+  }
 
   protected readonly contents = signal<Record<string, RecordedContent>>({});
 
