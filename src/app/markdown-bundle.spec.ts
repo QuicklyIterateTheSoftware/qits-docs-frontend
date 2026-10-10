@@ -27,6 +27,13 @@ describe('bundle readers, the pure pieces', () => {
     ]);
   });
 
+  it('opens a single-file bundle`s own file as its one page — a changelog`s CHANGELOG.md needs no index or README', () => {
+    const pages = storyPages(['CHANGELOG.md']);
+    expect(pages).toEqual([{ path: 'CHANGELOG.md', category: '', story: 'CHANGELOG' }]);
+    expect(categoriesOf(pages)).toEqual([]);
+    expect(pagesInCategory(pages, '').map((page) => page.story)).toEqual(['CHANGELOG']);
+  });
+
   it('derives categories in path order and narrows pages to one', () => {
     const pages = storyPages([
       'authentication/a/user-story.md',
@@ -41,7 +48,11 @@ describe('bundle readers, the pure pieces', () => {
 
   it('resolves a page`s relative references into its own served directory', () => {
     expect(
-      pageBaseUrl('@userflows/qits-githost', 'a'.repeat(40), 'authentication/some-story/user-story.md'),
+      pageBaseUrl(
+        '@userflows/qits-githost',
+        'a'.repeat(40),
+        'authentication/some-story/user-story.md',
+      ),
     ).toBe(`/docs/@userflows/qits-githost/-/${'a'.repeat(40)}/authentication/some-story/`);
     expect(pageBaseUrl('site', '1.0.0', 'README.md')).toBe('/docs/site/-/1.0.0/');
   });

@@ -6,12 +6,14 @@ describe('doc kinds and the sub-navigation', () => {
     expect(kindOf('@apidocs/qits-ci')).toBe('apidocs');
     expect(kindOf('@guides/qits-platform')).toBe('guides');
     expect(kindOf('@contracts/qits-projects')).toBe('contracts');
+    expect(kindOf('@changelog/qits-ci-service')).toBe('changelog');
     expect(kindOf('@qits/ui-components')).toBe('storybook');
     expect(kindOf('plain-site')).toBe('storybook');
     // The scope itself, without a site under it, is nobody's special kind.
     expect(kindOf('@userflows')).toBe('storybook');
     expect(kindOf('@guides')).toBe('storybook');
     expect(kindOf('@contracts')).toBe('storybook');
+    expect(kindOf('@changelog')).toBe('storybook');
   });
 
   /**
@@ -40,9 +42,10 @@ describe('doc kinds and the sub-navigation', () => {
    * a guides bundle drawn by anything but the markdown renderer would be an iframe over a directory
    * with no `index.html` — a blank page, not an error.
    */
-  it('draws userflows and guides with the one markdown renderer', () => {
+  it('draws userflows, guides and changelog with the one markdown renderer', () => {
     expect(rendererFor('userflows')).toBe('markdown');
     expect(rendererFor('guides')).toBe('markdown');
+    expect(rendererFor('changelog')).toBe('markdown');
     expect(rendererFor('apidocs')).toBe('swagger');
     expect(rendererFor('storybook')).toBe('frame');
     expect(rendererFor('contracts')).toBe('golden-masters');

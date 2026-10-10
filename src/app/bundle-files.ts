@@ -1,8 +1,11 @@
 /**
  * Readings over a markdown bundle's FILE PATHS — the directory layout is the contract the
  * userflows framework emits: `<category-slug>/<story-slug>/user-story.md` for a categorized
- * story, `<story-slug>/user-story.md` for an uncategorized one. Pure functions, shared by the
- * reader (page selection) and the sidebar (category rows), so the two derive one hierarchy.
+ * story, `<story-slug>/user-story.md` for an uncategorized one. A root-level file — `README.md` in
+ * a guides bundle, the single `CHANGELOG.md` a changelog bundle holds — falls out of the same rule
+ * with no story directory of its own: one path segment, so its story label is the file's own name
+ * rather than a directory one level up. Pure functions, shared by the reader (page selection) and
+ * the sidebar (category rows), so the two derive one hierarchy.
  */
 
 export interface StoryPage {
@@ -40,10 +43,7 @@ export function categoriesOf(pages: readonly StoryPage[]): string[] {
 }
 
 /** The pages a category narrows to; the empty selection means the uncategorized ones. */
-export function pagesInCategory(
-  pages: readonly StoryPage[],
-  category: string,
-): StoryPage[] {
+export function pagesInCategory(pages: readonly StoryPage[], category: string): StoryPage[] {
   return pages.filter((page) => page.category === category);
 }
 

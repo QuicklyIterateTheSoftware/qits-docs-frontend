@@ -1,35 +1,41 @@
 /**
- * The four kinds of documentation this app reads, told apart by the site's scope — the one fact
+ * The five kinds of documentation this app reads, told apart by the site's scope — the one fact
  * the publisher already states. A scope is an addressing convention, so classifying on it keeps
  * the byte plane opinion-free (the store serves files; what a bundle IS remains a reading choice,
  * which makes it this client's).
  *
- *  - `storybook` — an `index.html` site framed whole (component docs; the original kind).
- *  - `apidocs`   — an OpenAPI document under the `@apidocs` scope, rendered with swagger-ui.
- *  - `userflows` — a directory of per-story markdown under the `@userflows` scope, rendered with
- *                  a markdown library.
- *  - `guides`    — platform contracts and operating notes: hand-written markdown published from a
- *                  repository's `docs/guides`, under the `@guides` scope, rendered by the SAME
- *                  markdown renderer as userflows.
- *  - `contracts` — recorded pact-style golden masters: a `golden-masters/index.json` naming the
- *                  provider's states and, per state, the operations recorded against it, under the
- *                  `@contracts` scope, rendered by its own renderer straight from the index.
+ *  - `storybook`  — an `index.html` site framed whole (component docs; the original kind).
+ *  - `apidocs`    — an OpenAPI document under the `@apidocs` scope, rendered with swagger-ui.
+ *  - `userflows`  — a directory of per-story markdown under the `@userflows` scope, rendered with
+ *                   a markdown library.
+ *  - `guides`     — platform contracts and operating notes: hand-written markdown published from a
+ *                   repository's `docs/guides`, under the `@guides` scope, rendered by the SAME
+ *                   markdown renderer as userflows.
+ *  - `contracts`  — recorded pact-style golden masters: a `golden-masters/index.json` naming the
+ *                   provider's states and, per state, the operations recorded against it, under
+ *                   the `@contracts` scope, rendered by its own renderer straight from the index.
+ *  - `changelog`  — one `CHANGELOG.md` per release, published by every repository's own release
+ *                   under the `@changelog` scope, rendered by the SAME markdown renderer as
+ *                   userflows and guides.
  *
- * <p>That last line is the point worth saying out loud: a fourth kind arrived and needed no fourth
- * renderer. What separates userflows from guides is who writes the markdown (a pipeline recording
- * a run, versus a person writing a contract down) and what addresses it (`@userflows` per commit,
- * `@guides` per release) — not how it is drawn. Both are a tree of `.md` under a served bundle
- * directory, so both go to `markdown-bundle.ts` and the difference stays where it belongs, in the
- * scope and in the words. A `guides` renderer forked off the userflows one would have been two
- * copies of marked/DOMPurify/mermaid wiring drifting apart over a distinction neither of them
- * draws; `rendererFor` below says the sharing once instead.
+ * <p>That last line is the point worth saying out loud: a fourth and fifth kind arrived and needed
+ * no fourth or fifth renderer. What separates userflows from guides from changelog is who writes
+ * the markdown (a pipeline recording a run, a person writing a contract down, or a release
+ * publishing its own notes) and what addresses it (`@userflows` per commit, `@guides` per release,
+ * `@changelog` per release) — not how it is drawn. All three are a tree of `.md` under a served
+ * bundle directory — changelog's tree happens to hold exactly one file — so all three go to
+ * `markdown-bundle.ts` and the difference stays where it belongs, in the scope and in the words. A
+ * `guides` or `changelog` renderer forked off the userflows one would have been two more copies of
+ * marked/DOMPurify/mermaid wiring drifting apart over a distinction neither of them draws;
+ * `rendererFor` below says the sharing once instead.
  */
-export type DocKind = 'storybook' | 'apidocs' | 'userflows' | 'guides' | 'contracts';
+export type DocKind = 'storybook' | 'apidocs' | 'userflows' | 'guides' | 'contracts' | 'changelog';
 
 export const USERFLOWS_SCOPE = '@userflows';
 export const APIDOCS_SCOPE = '@apidocs';
 export const GUIDES_SCOPE = '@guides';
 export const CONTRACTS_SCOPE = '@contracts';
+export const CHANGELOG_SCOPE = '@changelog';
 
 /** The branch a version was published from, when its publisher recorded one. */
 export function branchOf(version: {
@@ -129,6 +135,13 @@ export const DOC_SECTIONS: readonly {
     scope: CONTRACTS_SCOPE,
     description: 'Recorded provider states and the operations run against each one.',
   },
+  {
+    kind: 'changelog',
+    label: 'Changelogs',
+    route: 'changelog',
+    scope: CHANGELOG_SCOPE,
+    description: 'One changelog per repository, a new entry with every release.',
+  },
 ];
 
 /**
@@ -166,6 +179,7 @@ export function rendererFor(kind: DocKind): DocRenderer {
   switch (kind) {
     case 'userflows':
     case 'guides':
+    case 'changelog':
       return 'markdown';
     case 'apidocs':
       return 'swagger';
