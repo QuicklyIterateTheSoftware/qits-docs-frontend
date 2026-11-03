@@ -3,8 +3,9 @@ import {
   provideBrowserGlobalErrorListeners,
   provideZonelessChangeDetection,
 } from '@angular/core';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
+import { provideQitsBearerSignIn, qitsBearerInterceptor } from '@qits/angular';
 import {
   provideQitsBuilds,
   provideQitsNavigation,
@@ -29,8 +30,14 @@ export const appConfig: ApplicationConfig = {
     // fixed — the reason to leave this off is unchanged.
     provideRouter(routes),
     // withFetch, because this client makes two ordinary GETs and has no use for the XHR backend's
-    // interceptor surface.
-    provideHttpClient(withFetch()),
+    // interceptor surface beyond the bearer interceptor below.
+    provideHttpClient(withFetch(), withInterceptors([qitsBearerInterceptor])),
+    // The sign-in itself (epic qits-543): token store, refresh, and the `/auth/callback` route it
+    // prepends to `routes` above. The deployed client id — this app has no dev-only environment
+    // file, so it is also what `ng serve` uses. The reader's bundle `<iframe>` (reader.ts
+    // `bundleUrl`) is a full page from qits-docs-service, which uses no qits-auth-core and stays
+    // behind the edge's session gate on navigation — it needs no bearer and is untouched.
+    provideQitsBearerSignIn({ clientId: 'qits-spa' }),
     // The sidebar's links come from the gateway's /main-navigation rather than a list compiled into
     // ui-components, which would be a second source of truth for the platform's own topology. Needs
     // the HttpClient above, which is why it is written after it.
