@@ -1,5 +1,5 @@
 /**
- * The five kinds of documentation this app reads, told apart by the site's scope — the one fact
+ * The six kinds of documentation this app reads, told apart by the site's scope — the one fact
  * the publisher already states. A scope is an addressing convention, so classifying on it keeps
  * the byte plane opinion-free (the store serves files; what a bundle IS remains a reading choice,
  * which makes it this client's).
@@ -17,10 +17,15 @@
  *  - `changelog`  — one `CHANGELOG.md` per release, published by every repository's own release
  *                   under the `@changelog` scope, rendered by the SAME markdown renderer as
  *                   userflows and guides.
+ *  - `routes`     — a frontend's frozen pages, recorded by its own screenshot specs: a tree of
+ *                   static HTML plus `assets/*.woff2` and a `manifest.json` naming the routes, at
+ *                   the bundle root, under the `@routes` scope. Framed like storybook for now — it
+ *                   has no `index.html` to frame, so `entryFileFor` points the frame at
+ *                   `manifest.json` instead; qits-1949 replaces this with a proper explorer.
  *
- * <p>That last line is the point worth saying out loud: a fourth and fifth kind arrived and needed
- * no fourth or fifth renderer. What separates userflows from guides from changelog is who writes
- * the markdown (a pipeline recording a run, a person writing a contract down, or a release
+ * <p>That `changelog` line is the point worth saying out loud: a fourth and fifth kind arrived and
+ * needed no fourth or fifth renderer. What separates userflows from guides from changelog is who
+ * writes the markdown (a pipeline recording a run, a person writing a contract down, or a release
  * publishing its own notes) and what addresses it (`@userflows` per commit, `@guides` per release,
  * `@changelog` per release) — not how it is drawn. All three are a tree of `.md` under a served
  * bundle directory — changelog's tree happens to hold exactly one file — so all three go to
@@ -29,13 +34,15 @@
  * marked/DOMPurify/mermaid wiring drifting apart over a distinction neither of them draws;
  * `rendererFor` below says the sharing once instead.
  */
-export type DocKind = 'storybook' | 'apidocs' | 'userflows' | 'guides' | 'contracts' | 'changelog';
+export type DocKind =
+  'storybook' | 'apidocs' | 'userflows' | 'guides' | 'contracts' | 'changelog' | 'routes';
 
 export const USERFLOWS_SCOPE = '@userflows';
 export const APIDOCS_SCOPE = '@apidocs';
 export const GUIDES_SCOPE = '@guides';
 export const CONTRACTS_SCOPE = '@contracts';
 export const CHANGELOG_SCOPE = '@changelog';
+export const ROUTES_SCOPE = '@routes';
 
 /** The branch a version was published from, when its publisher recorded one. */
 export function branchOf(version: {
@@ -136,6 +143,13 @@ export const DOC_SECTIONS: readonly {
     description: 'Recorded provider states and the operations run against each one.',
   },
   {
+    kind: 'routes',
+    label: 'Routes',
+    route: 'routes',
+    scope: ROUTES_SCOPE,
+    description: 'Frozen pages and route manifest per frontend, from its screenshot specs.',
+  },
+  {
     kind: 'changelog',
     label: 'Changelogs',
     route: 'changelog',
@@ -185,7 +199,24 @@ export function rendererFor(kind: DocKind): DocRenderer {
       return 'swagger';
     case 'contracts':
       return 'golden-masters';
+    // `storybook` and `routes` both fall to the default: 'frame' is the renderer with no kind of
+    // its own, the one every kind gets until something claims it — storybook always has, and
+    // routes does for now (interim; see entryFileFor and qits-1949).
     default:
       return 'frame';
   }
+}
+
+/**
+ * The file the `frame` renderer points its iframe at, within a bundle's version directory —
+ * deliberately a question `rendererFor` does not answer, because framing is one renderer shared by
+ * two kinds whose bundles do not share a root file. Storybook's root IS the directory: the empty
+ * string here leaves the URL ending in the directory itself, and the server's own directory-index
+ * convention serves its `index.html`. A `routes` bundle has no `index.html` at all — its root is
+ * `manifest.json`, the route listing (see the DocKind doc comment above) — so framing it means
+ * naming that file explicitly. Framing raw JSON is the deliberately crude interim: readable, not
+ * navigable, until qits-1949's explorer replaces this renderer for the kind.
+ */
+export function entryFileFor(kind: DocKind): string {
+  return kind === 'routes' ? 'manifest.json' : '';
 }

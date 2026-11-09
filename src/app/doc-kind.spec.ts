@@ -1,4 +1,4 @@
-import { DOC_SECTIONS, kindOf, rendererFor } from './doc-kind';
+import { DOC_SECTIONS, entryFileFor, kindOf, rendererFor } from './doc-kind';
 
 describe('doc kinds and the sub-navigation', () => {
   it('classifies a site by its scope, storybook being everything unclaimed', () => {
@@ -7,6 +7,7 @@ describe('doc kinds and the sub-navigation', () => {
     expect(kindOf('@guides/qits-platform')).toBe('guides');
     expect(kindOf('@contracts/qits-projects')).toBe('contracts');
     expect(kindOf('@changelog/qits-ci-service')).toBe('changelog');
+    expect(kindOf('@routes/qits-landing')).toBe('routes');
     expect(kindOf('@qits/ui-components')).toBe('storybook');
     expect(kindOf('plain-site')).toBe('storybook');
     // The scope itself, without a site under it, is nobody's special kind.
@@ -14,6 +15,7 @@ describe('doc kinds and the sub-navigation', () => {
     expect(kindOf('@guides')).toBe('storybook');
     expect(kindOf('@contracts')).toBe('storybook');
     expect(kindOf('@changelog')).toBe('storybook');
+    expect(kindOf('@routes')).toBe('storybook');
   });
 
   /**
@@ -49,5 +51,16 @@ describe('doc kinds and the sub-navigation', () => {
     expect(rendererFor('apidocs')).toBe('swagger');
     expect(rendererFor('storybook')).toBe('frame');
     expect(rendererFor('contracts')).toBe('golden-masters');
+    // routes shares storybook's frame — it is not a markdown kind.
+    expect(rendererFor('routes')).toBe('frame');
+  });
+
+  /**
+   * routes has no `index.html` to frame — unlike storybook, whose empty entry file leaves the
+   * frame pointed at the bundle directory for the server's own index convention to resolve.
+   */
+  it('frames routes at manifest.json, storybook at the bare directory', () => {
+    expect(entryFileFor('storybook')).toBe('');
+    expect(entryFileFor('routes')).toBe('manifest.json');
   });
 });

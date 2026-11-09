@@ -5,7 +5,7 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { switchMap } from 'rxjs';
 import { QITS_SCOPE, scopeCommands } from '@qits/ui-components';
 import { CatalogService, type DocVersion } from './catalog';
-import { branchOf, distinctBranches, kindOf, rendererFor } from './doc-kind';
+import { branchOf, distinctBranches, entryFileFor, kindOf, rendererFor } from './doc-kind';
 import { parseReadPath, readCommands } from './doc-url';
 import { GoldenMastersBundle } from './golden-masters-bundle';
 import { MarkdownBundle } from './markdown-bundle';
@@ -47,13 +47,15 @@ export function defaultVersion(versions: readonly DocVersion[]): string | undefi
  * and a pick NAVIGATES — the version is a place, so it goes in the path and the sidebar never
  * holds a picker. A URL without a version reads the newest of {@code main}.
  *
- * <p>Five kinds, four bodies — see doc-kind.ts: Storybook stays a whole-application
- * {@code <iframe>}; apidocs hand their OpenAPI document to swagger-ui; userflows AND guides both
- * render their markdown in place, because a recorded user story and a hand-written platform
- * contract are the same thing to a renderer — a tree of {@code .md} under a served bundle; contracts
- * read their {@code golden-masters/index.json} straight into its own renderer. So the body below
- * switches on the RENDERER ({@code rendererFor}), not on the kind: one arm per way of drawing, which
- * is what the template actually distinguishes, and a markdown-sharing kind adds no arm at all.
+ * <p>Seven kinds, four bodies — see doc-kind.ts: Storybook stays a whole-application
+ * {@code <iframe>}, and routes frames the same way, {@code entryFileFor} choosing which file; apidocs
+ * hand their OpenAPI document to swagger-ui; userflows, guides AND changelog all render their
+ * markdown in place, because a recorded user story, a hand-written platform contract and a
+ * release's own notes are the same thing to a renderer — a tree of {@code .md} under a served
+ * bundle; contracts read their {@code golden-masters/index.json} straight into its own renderer. So
+ * the body below switches on the RENDERER ({@code rendererFor}), not on the kind: one arm per way
+ * of drawing, which is what the template actually distinguishes, and a markdown-sharing or
+ * frame-sharing kind adds no arm at all.
  */
 @Component({
   selector: 'qits-docs-reader',
@@ -297,6 +299,8 @@ export class Reader {
    * The frame's entry point as a STRING — always version-addressed, never the bare site URL,
    * which redirects HERE (an iframe pointed at it would load this page inside this page — it
    * happened). The trailing slash is load-bearing: the bundle's relative assets resolve under it.
+   * `entryFileFor` appends the kind's own root file after that slash — empty for storybook, which
+   * needs none.
    */
   protected readonly bundleHref = computed(() => {
     const site = this.site();
@@ -304,7 +308,7 @@ export class Reader {
     if (!site || !version || site.startsWith('read/')) {
       return 'about:blank';
     }
-    return `/docs/${site}/-/${version}/`;
+    return `/docs/${site}/-/${version}/${entryFileFor(this.kind())}`;
   });
 
   /**
