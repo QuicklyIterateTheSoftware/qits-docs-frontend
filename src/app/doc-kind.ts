@@ -1,5 +1,5 @@
 /**
- * The six kinds of documentation this app reads, told apart by the site's scope — the one fact
+ * The seven kinds of documentation this app reads, told apart by the site's scope — the one fact
  * the publisher already states. A scope is an addressing convention, so classifying on it keeps
  * the byte plane opinion-free (the store serves files; what a bundle IS remains a reading choice,
  * which makes it this client's).
