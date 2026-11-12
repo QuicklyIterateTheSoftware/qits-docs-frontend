@@ -35,7 +35,7 @@
     "@qits/angular": "2026.1112.74140",
     "@qits/ci-golden-masters": "2026.1109.132507",
     "@qits/edge-golden-masters": "2026.1111.182144",
-    "@qits/projects-golden-masters": "2026.1111.203405",
+    "@qits/projects-golden-masters": "2026.1112.85411",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2",
