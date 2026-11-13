@@ -1,6 +1,6 @@
 {
   "name": "qits-spa-docs",
-  "version": "2026.1112.153715",
+  "version": "2026.1113.93156",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
