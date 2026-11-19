@@ -3,15 +3,19 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
+import { ProjectDocsRedirect } from './project-docs-redirect';
 import { Reader } from './reader';
 import { Scopes } from './scopes';
 import { Section } from './section';
 
 /**
  * Every page of this application is addressable three times — its own path, the same path under a
- * project, and the same path under a repository — and all three must land on the SAME component. A
- * second component for a scoped form is the failure this guards against: it would compile, render,
- * and drift.
+ * project, and the same path under a repository — and all three must land on the SAME component,
+ * with one exception: the project form's own landing page and section pages are
+ * {@link ProjectDocsRedirect} hops to the landing app's own docs screen (qits-2318), where the
+ * unscoped and repository forms still render {@link Scopes} and {@link Section} themselves. A
+ * second component for either of the forms that ARE meant to agree is the failure this guards
+ * against — it would compile, render, and drift.
  *
  * <p>Components are never created here. Without a `RouterOutlet` the router builds the state and
  * stops, so this reads what each URL resolves to without booting the chrome, the navigation fetch
@@ -56,13 +60,25 @@ describe('app routes', () => {
     ).toBe(Reader);
   });
 
-  it('serves the landing page under a project', async () => {
-    // Where the chrome's project picker sends this app when a reader picks `qits`.
-    expect(await resolve('/qits')).toBe(Scopes);
+  it('redirects the landing page under a project to the landing app, instead of serving its own', async () => {
+    // Where the chrome's project picker sends this app when a reader picks `qits` — it now hops
+    // straight on to the landing app's own docs screen for that project (qits-2318).
+    expect(await resolve('/qits')).toBe(ProjectDocsRedirect);
+  });
+
+  it('redirects a section page under a project to the landing app too, carrying the section along', async () => {
+    const router = TestBed.inject(Router);
+    expect(await resolve('/qits/apidocs')).toBe(ProjectDocsRedirect);
+    // The section rides the route's data, the same way it used to for `Section` — the redirect
+    // reads it to add `?section=` rather than hand-listing a case per section.
+    let node = router.routerState.snapshot.root;
+    while (node.firstChild) node = node.firstChild;
+    expect(node.data['section']).toBe('apidocs');
   });
 
   it('serves the reader under a project', async () => {
     expect(await resolve('/qits/read/@qits/ui-components/-/1.0.0')).toBe(Reader);
+    expect(await resolve('/qits/read/x')).toBe(Reader);
   });
 
   /**
@@ -80,10 +96,12 @@ describe('app routes', () => {
   /**
    * A component is an open set, so this app's own pages are what the guard excludes — otherwise
    * `read` would read as a component and a three-segment reader address would show the index.
+   * `storybook` now redirects rather than serving `Section` under a project, but it is still this
+   * app's own second segment and not a group, which is the one thing this test pins.
    */
   it('keeps its own pages under a project out of the group form', async () => {
     expect(await resolve('/qits/read/qits-cli')).toBe(Reader);
-    expect(await resolve('/qits/storybook')).toBe(Section);
+    expect(await resolve('/qits/storybook')).toBe(ProjectDocsRedirect);
   });
 
   /**
@@ -98,12 +116,20 @@ describe('app routes', () => {
   });
 
   /**
-   * The index is the answer either way: a middle segment naming no component of the project reads
-   * as a scope that never settles and shows the landing page, and a first segment nobody has takes
-   * the wildcard to the same place.
+   * A middle segment naming no component of the project reads as a scope that never settles and
+   * shows the landing page.
    */
-  it('falls back to the landing page for an address that names nothing', async () => {
+  it('falls back to the landing page for a repository address that names nothing', async () => {
     expect(await resolve('/qits/nonsense/qits-docs')).toBe(Scopes);
-    expect(await resolve('/nothing-here')).toBe(Scopes);
+  });
+
+  /**
+   * A first segment nobody has still reads as the project form, same as before this redirect
+   * existed — it is just that mount's own `''` child that now redirects rather than rendering
+   * `Scopes` locally, same as any other slug. There is no project list consulted here to tell a
+   * real one from a typo, on either side of the hop.
+   */
+  it('reads a first segment nobody has as the project form, which redirects like any other slug', async () => {
+    expect(await resolve('/nothing-here')).toBe(ProjectDocsRedirect);
   });
 });

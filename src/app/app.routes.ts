@@ -1,6 +1,7 @@
 import { Routes, type CanMatchFn, type UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
 import { DOC_SECTIONS } from './doc-kind';
+import { ProjectDocsRedirect } from './project-docs-redirect';
 import { Reader } from './reader';
 import { Scopes } from './scopes';
 import { Section } from './section';
@@ -72,19 +73,45 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
 };
 
 /**
+ * The project form's own children — `OWN`, with the landing page and every section page swapped
+ * for {@link ProjectDocsRedirect} hops to the landing app's own `/projects/<slug>/docs` (qits-2318):
+ * the full catalog unscoped, the catalog narrowed to one section with `?section=<route>` under
+ * each DOC_SECTIONS entry. `read/**` is untouched — the reader stays this application's own, under
+ * a project exactly as it always was — and so is the repository form two segments deeper, which
+ * mounts `OWN` rather than this array and never sees a redirect.
+ */
+const PROJECT_OWN: Routes = [
+  { path: '', component: ProjectDocsRedirect },
+  ...DOC_SECTIONS.map((section) => ({
+    path: section.route,
+    component: ProjectDocsRedirect,
+    data: { section: section.route },
+  })),
+  { path: 'read/**', component: Reader },
+];
+
+/**
  * The platform's URL grammar: every page of this application is addressable three times —
  * unscoped, under a project, and under the repository whose documentation it shows.
  *
  * The project form is what the chrome's project picker navigates to: `UrlScope.select(slug)` goes
- * to `/<slug>/`, and without this route that pick would fall through to the wildcard.
+ * to `/<slug>/`, and without this route that pick would fall through to the wildcard. It no longer
+ * renders this application's own landing or section pages, though: `/<slug>` and `/<slug>/<section>`
+ * are now {@link PROJECT_OWN}, each a {@link ProjectDocsRedirect} hop to the landing app's own docs
+ * screen for that project (qits-2318) — the catalog browser moved there, and this address exists
+ * only to carry an old bookmark or a picker navigation to it. `/<slug>/read/**` is the one address
+ * this mount still renders itself, because the reader has no landing-app equivalent to send it to.
  *
  * Order is the whole grammar. OWN routes come FIRST so a literal first segment always wins —
  * `/read/@qits/ui-components` is this app's reader, never a project called `read`. The repository
  * form follows, guarded off this app's own segments so `/qits/read/…` stays the reader, then the
  * project form takes what is left, and the wildcard closes the list.
  *
- * The pages read `inject(QITS_SCOPE).scope()` rather than these params, so the same components serve
- * every spelling and none has a component of its own.
+ * The unscoped and repository-scoped pages read `inject(QITS_SCOPE).scope()` rather than route
+ * params, so the same components serve both spellings and none has a component of its own.
+ * {@link ProjectDocsRedirect} is the exception: it has no reason to wait on `QITS_SCOPE`'s project
+ * list, since it is leaving this application either way, so it reads the `:project` segment the
+ * route table already matched.
  */
 export const routes: Routes = [
   {
@@ -93,7 +120,7 @@ export const routes: Routes = [
     children: [
       ...OWN,
       { path: ':project/:group/:repository', canMatch: [isRepositoryAddress], children: OWN },
-      { path: ':project', children: OWN },
+      { path: ':project', children: PROJECT_OWN },
       // Anything else is a mistyped URL; the index is the useful answer, not a 404 nobody wrote.
       { path: '**', redirectTo: '' },
     ],
