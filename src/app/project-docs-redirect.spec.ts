@@ -7,13 +7,15 @@ import { ProjectDocsRedirect } from './project-docs-redirect';
 
 /**
  * Where the project form's own landing page and section pages land now that the catalog browser
- * moved to the landing app (qits-2318).
+ * moved to the landing app (qits-2318) — and where the repository form's own land too, since
+ * qits-2336 gave it the same hop.
  *
- * **No router here, on purpose.** The component reads `:project` off `ActivatedRoute.snapshot.parent`
- * and its own section off `ActivatedRoute.snapshot.data`, both of which this suite can shape
- * directly — mounting the whole route table through a harness would additionally have to stand up
- * `QitsMainLayout` just to reach a page that is leaving before it would ever be drawn. See
- * `app.routes.spec.ts` for the routing side of this: which URLs resolve to this component at all.
+ * **No router here, on purpose.** The component reads `:project` (and, under the repository form,
+ * `:repository`) off `ActivatedRoute.snapshot.parent` and its own section off
+ * `ActivatedRoute.snapshot.data`, all of which this suite can shape directly — mounting the whole
+ * route table through a harness would additionally have to stand up `QitsMainLayout` just to reach
+ * a page that is leaving before it would ever be drawn. See `app.routes.spec.ts` for the routing
+ * side of this: which URLs resolve to this component at all.
  *
  * **`DOCUMENT` is a proxy over the real one, not a bare replacement.** jsdom's own
  * `location.replace` cannot be spied on at all, but the real `DOCUMENT` is also what Angular's own
@@ -36,9 +38,14 @@ function fakeDocument(replace: (url: string) => void): Document {
 describe('ProjectDocsRedirect', () => {
   let replace: ReturnType<typeof vi.fn<(url: string) => void>>;
 
-  /** `section` left out is the project's own landing page, the `''` child of `:project`. */
+  /**
+   * `section` left out is the landing page, the `''` child of either parent. `repository` left out
+   * is the project form; given, it is the repository form's `:project/:group/:repository` parent,
+   * which carries all three params on the one route.
+   */
   function mount(options: {
     readonly project: string;
+    readonly repository?: string;
     readonly section?: string;
     readonly navigation?: QitsNavigation;
   }): ComponentFixture<ProjectDocsRedirect> {
@@ -46,7 +53,13 @@ describe('ProjectDocsRedirect', () => {
     const route = {
       snapshot: {
         data: options.section === undefined ? {} : { section: options.section },
-        parent: { paramMap: convertToParamMap({ project: options.project }) },
+        parent: {
+          paramMap: convertToParamMap(
+            options.repository === undefined
+              ? { project: options.project }
+              : { project: options.project, repository: options.repository },
+          ),
+        },
       },
     } as unknown as ActivatedRoute;
 
@@ -85,6 +98,36 @@ describe('ProjectDocsRedirect', () => {
     mount({ project: 'a/b', navigation: LANDING_ORIGIN });
 
     expect(replace).toHaveBeenCalledWith('https://qits.example.test/projects/a%2Fb/docs');
+  });
+
+  it('redirects the landing page under a repository to the landing app’s repository docs screen', () => {
+    mount({ project: 'qits', repository: 'qits-docs-service', navigation: LANDING_ORIGIN });
+
+    expect(replace).toHaveBeenCalledOnce();
+    expect(replace).toHaveBeenCalledWith(
+      'https://qits.example.test/projects/qits/docs/repositories/qits-docs-service',
+    );
+  });
+
+  it('redirects a section page under a repository, carrying the section as a `?section=` lens', () => {
+    mount({
+      project: 'qits',
+      repository: 'qits-docs-service',
+      section: 'apidocs',
+      navigation: LANDING_ORIGIN,
+    });
+
+    expect(replace).toHaveBeenCalledWith(
+      'https://qits.example.test/projects/qits/docs/repositories/qits-docs-service?section=apidocs',
+    );
+  });
+
+  it('encodes the repository name', () => {
+    mount({ project: 'qits', repository: 'a/b', navigation: LANDING_ORIGIN });
+
+    expect(replace).toHaveBeenCalledWith(
+      'https://qits.example.test/projects/qits/docs/repositories/a%2Fb',
+    );
   });
 
   it('falls back to the environment origin where the landing app has none of its own', () => {

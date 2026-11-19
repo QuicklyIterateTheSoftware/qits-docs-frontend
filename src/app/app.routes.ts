@@ -77,10 +77,28 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
  * for {@link ProjectDocsRedirect} hops to the landing app's own `/projects/<slug>/docs` (qits-2318):
  * the full catalog unscoped, the catalog narrowed to one section with `?section=<route>` under
  * each DOC_SECTIONS entry. `read/**` is untouched — the reader stays this application's own, under
- * a project exactly as it always was — and so is the repository form two segments deeper, which
- * mounts `OWN` rather than this array and never sees a redirect.
+ * a project exactly as it always was. The repository form two segments deeper gets the same swap
+ * now (qits-2336), to its own `REPOSITORY_OWN` below rather than this array — it no longer mounts
+ * `OWN` either, and does see a redirect.
  */
 const PROJECT_OWN: Routes = [
+  { path: '', component: ProjectDocsRedirect },
+  ...DOC_SECTIONS.map((section) => ({
+    path: section.route,
+    component: ProjectDocsRedirect,
+    data: { section: section.route },
+  })),
+  { path: 'read/**', component: Reader },
+];
+
+/**
+ * The repository form's own children, the same swap as {@link PROJECT_OWN} one segment further in
+ * (qits-2336): the landing page and every section page hop to {@link ProjectDocsRedirect}, which
+ * reads both `:project` and `:repository` off the matched `:project/:group/:repository` route and
+ * lands on the landing app's `/projects/<slug>/docs/repositories/<repository>`, narrowed the same
+ * way with `?section=<route>`. `read/**` stays this application's own reader, untouched.
+ */
+const REPOSITORY_OWN: Routes = [
   { path: '', component: ProjectDocsRedirect },
   ...DOC_SECTIONS.map((section) => ({
     path: section.route,
@@ -101,17 +119,20 @@ const PROJECT_OWN: Routes = [
  * screen for that project (qits-2318) — the catalog browser moved there, and this address exists
  * only to carry an old bookmark or a picker navigation to it. `/<slug>/read/**` is the one address
  * this mount still renders itself, because the reader has no landing-app equivalent to send it to.
+ * The repository form makes the same hop now, to {@link REPOSITORY_OWN} (qits-2336): the landing
+ * app has a `/repositories/<repository>` screen too, and a repository address carries enough to
+ * reach it without ever consulting this application's own catalog.
  *
  * Order is the whole grammar. OWN routes come FIRST so a literal first segment always wins —
  * `/read/@qits/ui-components` is this app's reader, never a project called `read`. The repository
  * form follows, guarded off this app's own segments so `/qits/read/…` stays the reader, then the
  * project form takes what is left, and the wildcard closes the list.
  *
- * The unscoped and repository-scoped pages read `inject(QITS_SCOPE).scope()` rather than route
- * params, so the same components serve both spellings and none has a component of its own.
- * {@link ProjectDocsRedirect} is the exception: it has no reason to wait on `QITS_SCOPE`'s project
- * list, since it is leaving this application either way, so it reads the `:project` segment the
- * route table already matched.
+ * The unscoped page reads `inject(QITS_SCOPE).scope()` rather than route params, so the same
+ * component serves it without one of its own. {@link ProjectDocsRedirect} is the exception for
+ * both the project and repository forms: it has no reason to wait on `QITS_SCOPE`'s project list,
+ * since it is leaving this application either way, so it reads the `:project` (and, under the
+ * repository form, `:repository`) segment the route table already matched.
  */
 export const routes: Routes = [
   {
@@ -119,7 +140,11 @@ export const routes: Routes = [
     component: QitsMainLayout,
     children: [
       ...OWN,
-      { path: ':project/:group/:repository', canMatch: [isRepositoryAddress], children: OWN },
+      {
+        path: ':project/:group/:repository',
+        canMatch: [isRepositoryAddress],
+        children: REPOSITORY_OWN,
+      },
       { path: ':project', children: PROJECT_OWN },
       // Anything else is a mistyped URL; the index is the useful answer, not a 404 nobody wrote.
       { path: '**', redirectTo: '' },

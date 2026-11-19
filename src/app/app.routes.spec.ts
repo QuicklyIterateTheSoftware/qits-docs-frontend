@@ -10,12 +10,13 @@ import { Section } from './section';
 
 /**
  * Every page of this application is addressable three times — its own path, the same path under a
- * project, and the same path under a repository — and all three must land on the SAME component,
- * with one exception: the project form's own landing page and section pages are
- * {@link ProjectDocsRedirect} hops to the landing app's own docs screen (qits-2318), where the
- * unscoped and repository forms still render {@link Scopes} and {@link Section} themselves. A
- * second component for either of the forms that ARE meant to agree is the failure this guards
- * against — it would compile, render, and drift.
+ * project, and the same path under a repository — and all three used to land on the SAME
+ * component. That is still true for `read/**`, which stays {@link Reader} in all three spellings,
+ * but the landing page and every section page now hop instead: both the project form (qits-2318)
+ * and the repository form (qits-2336) are {@link ProjectDocsRedirect} redirects to the landing
+ * app's own docs screen, and only the unscoped form still renders {@link Scopes} and
+ * {@link Section} itself. A second component for the reader, which IS meant to agree everywhere,
+ * is the failure this guards against — it would compile, render, and drift.
  *
  * <p>Components are never created here. Without a `RouterOutlet` the router builds the state and
  * stops, so this reads what each URL resolves to without booting the chrome, the navigation fetch
@@ -36,16 +37,14 @@ describe('app routes', () => {
     return node.component;
   }
 
-  it('serves the landing page unscoped and under a repository', async () => {
+  it('serves the landing page unscoped', async () => {
     expect(await resolve('/')).toBe(Scopes);
-    expect(await resolve('/qits/services/qits-docs')).toBe(Scopes);
   });
 
-  it('serves every section page, unscoped and under a repository', async () => {
+  it('serves every section page unscoped', async () => {
     const router = TestBed.inject(Router);
     for (const section of ['storybook', 'apidocs', 'userflows', 'guides', 'contracts', 'routes']) {
       expect(await resolve(`/${section}`)).toBe(Section);
-      expect(await resolve(`/qits/services/qits-docs/${section}`)).toBe(Section);
       // The kind rides the route's data — the one component serves all of them.
       let node = router.routerState.snapshot.root;
       while (node.firstChild) node = node.firstChild;
@@ -82,12 +81,18 @@ describe('app routes', () => {
   });
 
   /**
-   * The middle segment is the repository's component now, and the archetype form it had before
-   * keeps working — the platform serves links in both spellings, and both land on the same page.
+   * The repository form's own landing page and section pages redirect too now (qits-2336), the
+   * same hop as the project form one segment out — the middle segment being the repository's
+   * component rather than its archetype category makes no difference, since both spellings reach
+   * the same route. `read/**` is the one address this form still renders itself.
    */
-  it('serves the pages under a repository addressed by its component', async () => {
-    expect(await resolve('/qits/qits-docs/qits-docs-service')).toBe(Scopes);
-    expect(await resolve('/qits/qits-docs/qits-docs-service/storybook')).toBe(Section);
+  it('redirects the repository form’s landing page and section pages, but still serves the reader', async () => {
+    const router = TestBed.inject(Router);
+    expect(await resolve('/qits/qits-docs/qits-docs-service')).toBe(ProjectDocsRedirect);
+    expect(await resolve('/qits/qits-docs/qits-docs-service/storybook')).toBe(ProjectDocsRedirect);
+    let node = router.routerState.snapshot.root;
+    while (node.firstChild) node = node.firstChild;
+    expect(node.data['section']).toBe('storybook');
     expect(
       await resolve('/qits/qits-ui-components/qits-spa-ui-components/read/@qits/ui-components'),
     ).toBe(Reader);
@@ -116,11 +121,13 @@ describe('app routes', () => {
   });
 
   /**
-   * A middle segment naming no component of the project reads as a scope that never settles and
-   * shows the landing page.
+   * A middle segment naming no component of the project still reads as the repository form — the
+   * guard only tells a group from one of this app's own pages, never a real component from a
+   * typo'd one — so it redirects the same as any other repository address rather than falling
+   * back to anything local.
    */
-  it('falls back to the landing page for a repository address that names nothing', async () => {
-    expect(await resolve('/qits/nonsense/qits-docs')).toBe(Scopes);
+  it('redirects a repository address that names nothing, the same as any other', async () => {
+    expect(await resolve('/qits/nonsense/qits-docs')).toBe(ProjectDocsRedirect);
   });
 
   /**

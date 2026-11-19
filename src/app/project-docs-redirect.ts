@@ -7,15 +7,22 @@ import { QitsAppLinks } from '@qits/ui-components';
  * Where the project form's own landing page and section pages go now that the landing app grew a
  * docs screen of its own, at `/projects/<slug>/docs` — the full catalog for that project, the
  * section narrowing it with `?section=<route>` exactly as this app's own `DOC_SECTIONS` names it
- * (qits-2318). `read/**` is untouched: the reader stays this application's, and so does the
- * repository form (`:project/:group/:repository`), which never mounts this component.
+ * (qits-2318). `read/**` is untouched: the reader stays this application's own, under both forms.
  *
- * **The project comes from the parent route, not from `QITS_SCOPE`.** Every page this component
- * replaces used to read the address through that token, which also has to parse the repository
- * form and wait on the project list. This page has nothing to wait for — it is leaving the moment
- * an origin for the landing app is known — so it reads the `:project` segment the `:project`
- * mount already matched, one level up from either of its own children (`''` and each section
- * route).
+ * The repository form (`:project/:group/:repository`) mounts this same component now, for the same
+ * two children (qits-2336): `/projects/<slug>/docs/repositories/<repository>`, again narrowed with
+ * `?section=<route>`. One component serves both forms because the address differs only by whether
+ * a `:repository` segment is there to add — everything else, including the wait for an origin and
+ * the full-document navigation, is identical.
+ *
+ * **The project and repository come from the parent route, not from `QITS_SCOPE`.** Every page this
+ * component replaces used to read the address through that token, which also has to parse the
+ * repository form and wait on the project list. This page has nothing to wait for — it is leaving
+ * the moment an origin for the landing app is known — so it reads `:project` (and, under the
+ * repository form, `:repository`) off the parent route's `paramMap` directly: for the project form
+ * that parent is the `:project` mount, and for the repository form it is the single
+ * `:project/:group/:repository` route both of its own children (`''` and each section route) sit
+ * under, which carries all three params on that one snapshot.
  *
  * **The destination's origin is an async answer, and this screen waits for it rather than
  * guessing.** `QitsAppLinks.origin('qits-landing')` and its `environmentOrigin()` fallback both
@@ -50,16 +57,24 @@ export class ProjectDocsRedirect {
   /** The `:project` segment one level up — always present, since only that mount routes here. */
   private readonly project = this.route.snapshot.parent?.paramMap.get('project') ?? '';
 
+  /**
+   * The `:repository` segment one level up, when there is one — present under the repository
+   * form's `:project/:group/:repository` parent, absent under the project form's `:project` one.
+   */
+  private readonly repository = this.route.snapshot.parent?.paramMap.get('repository') ?? undefined;
+
   /** The section route segment declared on this route's own data, or `undefined` at `''`. */
   private readonly section = this.route.snapshot.data['section'] as string | undefined;
 
-  /** The landing app's docs screen for this project, once an origin for it is known. */
+  /** The landing app's docs screen for this project, or this repository, once an origin is known. */
   protected readonly link = computed<string | undefined>(() => {
     const origin = this.links.origin('qits-landing') ?? this.links.environmentOrigin();
     if (!origin) {
       return undefined;
     }
-    const path = `/projects/${encodeURIComponent(this.project)}/docs`;
+    const path = this.repository
+      ? `/projects/${encodeURIComponent(this.project)}/docs/repositories/${encodeURIComponent(this.repository)}`
+      : `/projects/${encodeURIComponent(this.project)}/docs`;
     const search = this.section ? `?section=${encodeURIComponent(this.section)}` : '';
     return `${origin.replace(/\/+$/, '')}${path}${search}`;
   });
