@@ -1,6 +1,8 @@
 import { Routes, type CanMatchFn, type UrlSegment } from '@angular/router';
 import { QitsMainLayout, QITS_CATEGORIES, type QitsCategory } from '@qits/ui-components';
-import { DOC_SECTIONS } from './doc-kind';
+import { DOC_SECTIONS, kindOf } from './doc-kind';
+import { parseReadPath } from './doc-url';
+import { DocsReaderRedirect } from './docs-reader-redirect';
 import { ProjectDocsRedirect } from './project-docs-redirect';
 import { Reader } from './reader';
 import { Scopes } from './scopes';
@@ -73,13 +75,29 @@ export const isRepositoryAddress: CanMatchFn = (_route, segments: UrlSegment[]) 
 };
 
 /**
+ * Whether a `read/**` address is a storybook site — the one kind that still reads here under a
+ * project or a repository, because the landing app's own reader (qits-2337) has no frame renderer
+ * of its own and its docs screen links BACK to this app for exactly that kind. Guarding the
+ * `Reader` route with this, ahead of {@link DocsReaderRedirect}'s own `read/**`, is what keeps a
+ * storybook address rendering here while every other kind hops on.
+ *
+ * `segments` is the full remaining match AT this point in the tree — the literal `read` first,
+ * then the site — which is why this reads it with the same `parseReadPath` the reader and the
+ * redirect both use, rather than assuming the site starts at `segments[0]`.
+ */
+export const isStorybookRead: CanMatchFn = (_route, segments: UrlSegment[]) =>
+  kindOf(parseReadPath(segments.map((segment) => segment.path)).site) === 'storybook';
+
+/**
  * The project form's own children — `OWN`, with the landing page and every section page swapped
  * for {@link ProjectDocsRedirect} hops to the landing app's own `/projects/<slug>/docs` (qits-2318):
  * the full catalog unscoped, the catalog narrowed to one section with `?section=<route>` under
- * each DOC_SECTIONS entry. `read/**` is untouched — the reader stays this application's own, under
- * a project exactly as it always was. The repository form two segments deeper gets the same swap
- * now (qits-2336), to its own `REPOSITORY_OWN` below rather than this array — it no longer mounts
- * `OWN` either, and does see a redirect.
+ * each DOC_SECTIONS entry. `read/**` now hops too (qits-2337), to {@link DocsReaderRedirect} and
+ * the landing app's own reader at `/projects/<slug>/docs/read/<site>` — except a storybook site,
+ * which `isStorybookRead` keeps on this application's own {@link Reader}, since the landing app
+ * links back here for that kind rather than framing it itself. The repository form two segments
+ * deeper gets the same shape now (qits-2336), to its own `REPOSITORY_OWN` below rather than this
+ * array — it no longer mounts `OWN` either.
  */
 const PROJECT_OWN: Routes = [
   { path: '', component: ProjectDocsRedirect },
@@ -88,7 +106,8 @@ const PROJECT_OWN: Routes = [
     component: ProjectDocsRedirect,
     data: { section: section.route },
   })),
-  { path: 'read/**', component: Reader },
+  { path: 'read/**', canMatch: [isStorybookRead], component: Reader },
+  { path: 'read/**', component: DocsReaderRedirect },
 ];
 
 /**
@@ -96,7 +115,10 @@ const PROJECT_OWN: Routes = [
  * (qits-2336): the landing page and every section page hop to {@link ProjectDocsRedirect}, which
  * reads both `:project` and `:repository` off the matched `:project/:group/:repository` route and
  * lands on the landing app's `/projects/<slug>/docs/repositories/<repository>`, narrowed the same
- * way with `?section=<route>`. `read/**` stays this application's own reader, untouched.
+ * way with `?section=<route>`. `read/**` hops now too (qits-2337), the same as {@link PROJECT_OWN}
+ * — storybook stays this application's own {@link Reader}, everything else goes to
+ * {@link DocsReaderRedirect}, which drops the repository: a reader is addressed by site, never by
+ * the repository that published it.
  */
 const REPOSITORY_OWN: Routes = [
   { path: '', component: ProjectDocsRedirect },
@@ -105,7 +127,8 @@ const REPOSITORY_OWN: Routes = [
     component: ProjectDocsRedirect,
     data: { section: section.route },
   })),
-  { path: 'read/**', component: Reader },
+  { path: 'read/**', canMatch: [isStorybookRead], component: Reader },
+  { path: 'read/**', component: DocsReaderRedirect },
 ];
 
 /**
@@ -117,22 +140,28 @@ const REPOSITORY_OWN: Routes = [
  * renders this application's own landing or section pages, though: `/<slug>` and `/<slug>/<section>`
  * are now {@link PROJECT_OWN}, each a {@link ProjectDocsRedirect} hop to the landing app's own docs
  * screen for that project (qits-2318) — the catalog browser moved there, and this address exists
- * only to carry an old bookmark or a picker navigation to it. `/<slug>/read/**` is the one address
- * this mount still renders itself, because the reader has no landing-app equivalent to send it to.
- * The repository form makes the same hop now, to {@link REPOSITORY_OWN} (qits-2336): the landing
- * app has a `/repositories/<repository>` screen too, and a repository address carries enough to
- * reach it without ever consulting this application's own catalog.
+ * only to carry an old bookmark or a picker navigation to it. `/<slug>/read/**` now hops too
+ * (qits-2337), to {@link DocsReaderRedirect} and the landing app's own reader — except a storybook
+ * site, which still renders this application's own {@link Reader}, since the landing app has no
+ * frame renderer of its own and links back here for that one kind. The repository form makes the
+ * same hops now, to {@link REPOSITORY_OWN} (qits-2336, qits-2337): the landing app has a
+ * `/repositories/<repository>` screen and a reader of its own, and a repository address carries
+ * enough to reach either without ever consulting this application's own catalog — the reader hop
+ * drops the repository, since a reader is addressed by site, not by the repository that published
+ * it.
  *
  * Order is the whole grammar. OWN routes come FIRST so a literal first segment always wins —
  * `/read/@qits/ui-components` is this app's reader, never a project called `read`. The repository
- * form follows, guarded off this app's own segments so `/qits/read/…` stays the reader, then the
- * project form takes what is left, and the wildcard closes the list.
+ * form follows, guarded off this app's own segments so `/qits/read/…` stays scoped to the project
+ * form rather than being read as a group, then the project form takes what is left, and the
+ * wildcard closes the list.
  *
  * The unscoped page reads `inject(QITS_SCOPE).scope()` rather than route params, so the same
- * component serves it without one of its own. {@link ProjectDocsRedirect} is the exception for
- * both the project and repository forms: it has no reason to wait on `QITS_SCOPE`'s project list,
- * since it is leaving this application either way, so it reads the `:project` (and, under the
- * repository form, `:repository`) segment the route table already matched.
+ * component serves it without one of its own. {@link ProjectDocsRedirect} and
+ * {@link DocsReaderRedirect} are the exception for both the project and repository forms: neither
+ * has a reason to wait on `QITS_SCOPE`'s project list, since both are leaving this application
+ * either way, so each reads the `:project` (and, under the repository form and only for
+ * {@link ProjectDocsRedirect}, `:repository`) segment the route table already matched.
  */
 export const routes: Routes = [
   {

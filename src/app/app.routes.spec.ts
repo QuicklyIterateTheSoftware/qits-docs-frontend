@@ -3,6 +3,7 @@ import { provideLocationMocks } from '@angular/common/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { routes } from './app.routes';
+import { DocsReaderRedirect } from './docs-reader-redirect';
 import { ProjectDocsRedirect } from './project-docs-redirect';
 import { Reader } from './reader';
 import { Scopes } from './scopes';
@@ -11,12 +12,15 @@ import { Section } from './section';
 /**
  * Every page of this application is addressable three times — its own path, the same path under a
  * project, and the same path under a repository — and all three used to land on the SAME
- * component. That is still true for `read/**`, which stays {@link Reader} in all three spellings,
- * but the landing page and every section page now hop instead: both the project form (qits-2318)
- * and the repository form (qits-2336) are {@link ProjectDocsRedirect} redirects to the landing
- * app's own docs screen, and only the unscoped form still renders {@link Scopes} and
- * {@link Section} itself. A second component for the reader, which IS meant to agree everywhere,
- * is the failure this guards against — it would compile, render, and drift.
+ * component. `read/**` stays {@link Reader} unscoped, as it always has, but under a project or a
+ * repository it now hops to {@link DocsReaderRedirect} too (qits-2337) — unless the site is a
+ * storybook one, which keeps rendering {@link Reader} there, since the landing app's own reader
+ * has no frame renderer and links back here for that kind. The landing page and every section page
+ * hop as well: both the project form (qits-2318) and the repository form (qits-2336) are
+ * {@link ProjectDocsRedirect} redirects to the landing app's own docs screen, and only the unscoped
+ * form still renders {@link Scopes} and {@link Section} itself. A second component for the reader,
+ * which IS meant to agree everywhere even now that it isn't always this app's own, is the failure
+ * this guards against — it would compile, render, and drift.
  *
  * <p>Components are never created here. Without a `RouterOutlet` the router builds the state and
  * stops, so this reads what each URL resolves to without booting the chrome, the navigation fetch
@@ -96,6 +100,32 @@ describe('app routes', () => {
     expect(
       await resolve('/qits/qits-ui-components/qits-spa-ui-components/read/@qits/ui-components'),
     ).toBe(Reader);
+  });
+
+  /**
+   * The point of {@link isStorybookRead}: a storybook address — any site no DOC_SECTIONS scope
+   * claims — keeps rendering this application's own {@link Reader} under both forms, because the
+   * landing app's own reader has no frame renderer and links back here for exactly that kind.
+   * Everything else hops to {@link DocsReaderRedirect}, with the repository form dropping the
+   * repository (a reader is addressed by site, never by the repository that published it), and the
+   * unscoped form is untouched either way.
+   */
+  it('redirects a non-storybook read address under a project, keeping the version', async () => {
+    expect(await resolve('/qits/read/@userflows/qits-projects')).toBe(DocsReaderRedirect);
+    expect(await resolve('/qits/read/@changelog/qits-ci-service/-/2026.1119.181434')).toBe(
+      DocsReaderRedirect,
+    );
+  });
+
+  it('redirects a non-storybook read address under the repository form too', async () => {
+    expect(await resolve('/qits/qits-ci/qits-ci-service/read/@contracts/qits-ci')).toBe(
+      DocsReaderRedirect,
+    );
+  });
+
+  it('keeps serving the reader for a storybook address under a project, and unscoped', async () => {
+    expect(await resolve('/qits/read/@qits/ui-components')).toBe(Reader);
+    expect(await resolve('/read/@userflows/x')).toBe(Reader);
   });
 
   /**
